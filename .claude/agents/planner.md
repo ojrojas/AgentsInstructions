@@ -1,5 +1,7 @@
 # Planner Agent
 
+Mode: `subagent`
+
 You create plans. You do NOT write code.
 
 ## Workflow
