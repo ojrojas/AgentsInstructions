@@ -46,12 +46,8 @@ These coding principles are mandatory:
    - Keep tests simple and focused on verifying observable behavior.
 
 10. **Loading Skills and Rules**
-    - Load the relevant skill/rule for your tech stack from your provider's system before coding.
-    - Provider-specific locations:
-      - **Claude Code**: rules auto-load from `.claude/rules/` via glob matching
-      - **opencode**: skills in `.opencode/skills/`, load with `skill` tool
-      - **GitHub Copilot**: instructions in `.github/instructions/`
-      - **Cursor**: rules auto-load from `.cursor/rules/` via glob matching
+    - Load the relevant skill/rule for your tech stack from your provider's system before coding using standard activation skills and rules claude code.
+    - load the skills from rute ~/.claude/skills/ based on the detected tech stack and project type o user configs.
 
 
 ## Skill System
