@@ -100,30 +100,6 @@ If a skill exists for the detected stack, it MUST be loaded before generating co
 | `csharp-scripts` | Run file-based C# apps without creating a project |
 | `convert-blazor-server-to-webapp` | Migrate Blazor Server to Blazor Web App |
 
-#### .NET — Testing Skills
-| Skill | Description |
-|---|---|
-| `code-testing-agent` | Generate unit tests for any language via Research-Plan-Implement pipeline |
-| `writing-mstest-tests` | Write MSTest tests using 3.x/4.x modern APIs |
-| `run-tests` | Run/filter/troubleshoot dotnet test (VSTest vs MTP) |
-| `test-anti-patterns` | Audit tests for anti-patterns and quality issues |
-| `test-smell-detection` | Deep-dive 19-smell academic catalog audit |
-| `test-gap-analysis` | Pseudo-mutation analysis to find untested edge cases |
-| `assertion-quality` | Measure assertion variety and depth |
-| `crap-score` | CRAP scores per method (complexity × coverage) |
-| `coverage-analysis` | Project-wide coverage and CRAP analysis |
-| `detect-static-dependencies` | Find DateTime.Now, File.*, Environment.*, etc. |
-| `generate-testability-wrappers` | Generate IFileSystem, TimeProvider, etc. wrappers |
-| `migrate-static-to-wrapper` | Codemod static calls to injected abstractions |
-| `exp-mock-usage-analysis` | Audit mock setups for dead/unreachable mocks |
-| `exp-test-maintainability` | Detect duplicate boilerplate and copy-paste tests |
-| `mtp-hot-reload` | Iterate test fixes without rebuilding |
-| `migrate-vstest-to-mtp` | Migrate VSTest to Microsoft.Testing.Platform |
-| `migrate-mstest-v1v2-to-v3` | Upgrade MSTest v1/v2 to v3 |
-| `migrate-mstest-v3-to-v4` | Upgrade MSTest v3 to v4 |
-| `migrate-xunit-to-xunit-v3` | Upgrade xUnit v2 to v3 |
-| `test-tagging` | Tag tests with standardized traits |
-
 #### .NET — Blazor (Frontend / Interactive)
 | Skill | Description |
 |---|---|

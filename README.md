@@ -13,29 +13,36 @@ Rules have been merged into skills using the `paths` frontmatter field for auto-
 │   ├── agents/                # Agent definitions
 │   │   ├── coder.md
 │   │   ├── designer.md
+│   │   ├── documenter.md
 │   │   ├── orchestrator.md
 │   │   ├── planner.md
-│   │   ├── backend-csharp.md
-│   │   ├── frontend-angular.md
-│   │   ├── fullstack-identity.md
-│   │   └── testing-engineer.md
-│   └── skills/                # Skills (each directory has SKILL.md)
-│       ├── angular/
-│       ├── angular-create-feature/
-│       ├── architecture/
-│       ├── backend-netcore/
-│       ├── blazor/
-│       ├── conventions/
-│       ├── create-endpoint/
-│       ├── create-new-module/
-│       ├── create-specification/
-│       ├── create-value-object/
-│       ├── fluentui-blazor/
-│       ├── implement-cqrs-command/
-│       ├── implement-cqrs-query/
-│       ├── ngrx-signal-store/
-│       ├── project-rules/
-│       └── testing/
+│   │   └── tester.md
+│   └── skills/                # Skills (each directory or sub-directory has SKILL.md)
+│       ├── create-new-module/          # DDD module scaffolding
+│       ├── create-specification/       # Specification pattern
+│       ├── create-value-object/        # Value Objects
+│       ├── dotnet-core/               # .NET Core conventions
+│       ├── dotnet-ai/                 # AI/ML & MCP servers
+│       ├── dotnet-aspnet/             # ASP.NET Core Web APIs
+│       ├── dotnet-blazor/             # Blazor components & patterns
+│       ├── dotnet-data/               # EF Core optimization
+│       ├── dotnet-diag/               # Diagnostics, performance, crash analysis
+│       ├── dotnet-experimental/       # Experimental: SIMD, mock analysis
+│       ├── dotnet-maui/               # .NET MAUI mobile/desktop
+│       ├── dotnet-msbuild/            # MSBuild, build perf, binlogs
+│       ├── dotnet-nuget/              # NuGet CPM, publishing
+│       ├── dotnet-template-engine/    # dotnet new templates
+│       ├── dotnet-test/               # Testing, coverage, mocks
+│       ├── dotnet-upgrade/            # Migration between .NET versions
+│       ├── dotnet/                    # General .NET (P/Invoke, scripts)
+│       ├── dotnet11/                  # .NET 11 specific APIs
+│       ├── efcore-patterns/           # EF Core best practices
+│       ├── exception-handling/        # ASP.NET Core error handling
+│       ├── feature-flags/             # Feature management
+│       ├── implement-cqrs-command/    # CQRS command scaffold
+│       ├── implement-cqrs-query/      # CQRS query scaffold
+│       ├── logging-observability/     # Serilog, OpenTelemetry
+│       └── ngrx-signal-store/         # Angular state management
 ├── dotnet-skills/             # External .NET skills plugin (submodule)
 ├── setup.sh                   # Installation script
 └── README.md                  # This file
@@ -70,7 +77,7 @@ Load an agent in Claude Code with:
 /agent <name>
 ```
 
-Available agents: `coder`, `designer`, `orchestrator`, `planner`, `backend-csharp`, `frontend-angular`, `fullstack-identity`, `testing-engineer`.
+Available agents: `coder`, `designer`, `documenter`, `orchestrator`, `planner`, `tester`.
 
 ### Skills
 
