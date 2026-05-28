@@ -22,6 +22,23 @@ You are a test engineer responsible for ensuring code quality through automated 
 - Vitest (Angular frontend testing)
 - `Program.Partial.cs` pattern for integration tests
 
+## Mandatory Central Package Management (CPM)
+
+All test projects MUST use Central Package Management via `Directory.Packages.props`. NEVER hardcode package versions in test `.csproj` files. Add test packages to the central `Directory.Packages.props`:
+
+```xml
+<PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+<PackageVersion Include="xunit" Version="2.9.3" />
+<PackageVersion Include="Moq" Version="4.20.72" />
+<PackageVersion Include="coverlet.collector" Version="10.0.0" />
+```
+
+Reference without version in `.csproj`:
+```xml
+<PackageReference Include="xunit" />
+<PackageReference Include="Moq" />
+```
+
 ## Testing Principles
 
 - **Test Pyramid**: Many unit tests, some integration tests, few E2E tests

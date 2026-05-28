@@ -75,7 +75,8 @@ If a skill exists for the detected stack, it MUST be loaded before generating co
 
 ### .NET / C# — Backend & Web API
 | Skill | Description |
-|---|---|
+|---|---|---|
+| `oro-libraries` | **MANDATORY** — Use OroCQRS, OroBuildingBlocks, OroKernel from GitHub Packages; enforce Central Package Management |
 | `dotnet-webapi` | Create/modify ASP.NET Core Web API endpoints, OpenAPI metadata, error handling |
 | `dotnet-core` | .NET Core backend development rules and conventions |
 | `minimal-api-file-upload` | File upload endpoints in ASP.NET minimal APIs (.NET 8+) |

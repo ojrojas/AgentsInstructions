@@ -116,3 +116,19 @@ When delegating, describe WHAT needs to be done (the outcome), not HOW to do it.
 ### WRONG delegation
 - "Fix the bug by wrapping the selector with useShallow"
 - "Add a button that calls handleClick and updates state"
+
+## .NET Core Mandatory Rules (apply when delegating to Coder/Tester)
+
+When the task involves .NET Core projects, you MUST include these requirements
+in the delegation prompt to both the Coder and Tester agents:
+
+### For Coder delegations
+1. **"Use Central Package Management (CPM)** — Create/update `Directory.Packages.props` with `ManagePackageVersionsCentrally=true`. No hardcoded versions in .csproj."
+2. **"Use Oro libraries from GitHub Packages** — Configure `nuget.config` with source `https://nuget.pkg.github.com/ojrojas/index.json`. Reference packages: `OroCQRS`, `OroKernel.Shared`, `OroServiceDefaults`, `OroEventBus`, `OroEventBusRabbitMQ`, `OroLoggers`."
+3. **"Use OroCQRS as mediator** — Register via `builder.Services.AddCqrsHandlers()`. Use `ISender` for dispatching commands/queries/notifications."
+4. **"Use OroBuildingBlocks** — Call `builder.AddServiceDefaults()` and `app.MapDefaultEndpoints()` for OpenTelemetry, health checks, resilience."
+5. **"Use OroKernel for entities and auditing** — Inherit from `BaseEntity`, use `AuditableDbContext` for automatic audit tracking."
+
+### For Tester delegations
+1. **"Use Central Package Management** — Test packages must be in `Directory.Packages.props`, not versioned in test .csproj."
+2. **"Follow the testing skill** — Use xUnit, Moq, and coverlet for .NET test projects."

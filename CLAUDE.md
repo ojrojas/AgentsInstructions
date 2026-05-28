@@ -28,6 +28,7 @@ Reusable skills in `.claude/skills/`:
 | `angular` | Angular development best practices | `**/*.ts`, `src/app/**/*.html` |
 | `angular-create-feature` | Scaffold Angular feature modules | — |
 | `architecture` | Clean Architecture guidance | `**/*.cs`, `**/*.csproj`, `**/*.slnx` |
+| `oro-libraries` | OroCQRS, OroBuildingBlocks, OroKernel integration + CPM | `**/*.cs`, `**/*.csproj`, `**/*.slnx`, `**/*.props` |
 | `backend-netcore` | .NET DDD/CQRS backend scaffolding | `**/*.cs`, `**/*.csproj` |
 | `blazor` | Blazor client-server patterns | `**/*.razor`, `**/*.cs` |
 | `conventions` | Coding conventions reference | `**/*.cs`, `**/*.ts`, `**/*.razor`, `**/*.csproj` |
