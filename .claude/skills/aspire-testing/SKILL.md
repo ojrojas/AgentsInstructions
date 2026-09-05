@@ -1,6 +1,11 @@
 ---
 name: aspire-testing
-description: Helps create, analyze, maintain, and troubleshoot xUnit tests for .NET Aspire applications. Uses Aspire.Hosting.Testing and  DistributedApplicationTestingBuilder to run functional and integration tests against the AppHost and its resources. Use this skill when the user asks to create tests for an Aspire project, test endpoints or services deployed by the AppHost, verify communication between resources, validate databases or containers, manage the AppHost lifecycle in tests, or troubleshoot Aspire testing issues.  Aspire Testing with xUnit Purpose This skill helps generate and maintain tests for .NET Aspire applications following the official Aspire testing practices.
+description: Helps create, analyze, maintain, and troubleshoot xUnit tests for .NET Aspire applications. Uses Aspire.Hosting.Testing and DistributedApplicationTestingBuilder to run functional and integration tests against the AppHost and its resources. Use this skill when the user asks to create tests for an Aspire project, test endpoints or services deployed by the AppHost, verify communication between resources, validate databases or containers, manage the AppHost lifecycle in tests, or troubleshoot Aspire testing issues.
+---
+
+## Purpose
+
+Aspire Testing with xUnit — This skill helps generate and maintain tests for .NET Aspire applications following the official Aspire testing practices.
 
 The primary goal is to test the distributed application as a whole by using
 Aspire.Hosting.Testing.
