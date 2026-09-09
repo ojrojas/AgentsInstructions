@@ -202,6 +202,11 @@ If a skill exists for the detected stack, it MUST be loaded before generating co
 | `conventions` | Coding conventions reference |
 | `project-rules` | Strict development and process rules |
 
+### .NET - Test (applies to all projects net10 | net11)
+| Skill | Description |
+|---|---|
+| `dotnet-test` | Multimultiple agents to create unit testing |
+
 ### Skill Priority
 
 1. Skills override base rules
