@@ -72,6 +72,7 @@ If a skill exists for the detected stack, it MUST be loaded before generating co
 #### .NET — Testing Skills
 | Skill | Description |
 |---|---|
+| `aspire-testing` | This skill helps generate and maintain tests for .NET Aspire applications following the official Aspire testing practices |
 | `code-testing-agent` | Generate unit tests for any language via Research-Plan-Implement pipeline |
 | `writing-mstest-tests` | Write MSTest tests using 3.x/4.x modern APIs |
 | `run-tests` | Run/filter/troubleshoot dotnet test (VSTest vs MTP) |
