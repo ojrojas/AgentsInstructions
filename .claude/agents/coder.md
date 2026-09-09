@@ -99,6 +99,11 @@ If a skill exists for the detected stack, it MUST be loaded before generating co
 | `csharp-scripts` | Run file-based C# apps without creating a project |
 | `convert-blazor-server-to-webapp` | Migrate Blazor Server to Blazor Web App |
 
+#### .NET — Aspire Testing
+| Skill | Description |
+|---|---|
+| `aspire-testing` | Helps create, analyze, maintain, and troubleshoot xUnit tests for .NET Aspire applications. Uses Aspire.Hosting.Testing and DistributedApplicationTestingBuilder to run functional and integration tests against the AppHost and its resources |
+
 #### .NET — Blazor (Frontend / Interactive)
 | Skill | Description |
 |---|---|
