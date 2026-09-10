@@ -63,38 +63,40 @@ Architecture is a decision, not an accident. Before scaffolding files you MUST:
 3. **Follow the matching folder contract** below. Layer-first folders are forbidden when
    the chosen architecture is feature/slice-first.
 
-### Vertical Slice (default for .NET DDD/CQRS with BuildingBlocks, and any feature-first repo)
+## Arquitectura (Selección Obligatoria antes de codificar)
 
-One feature = one self-contained slice, grouped in a folder **per feature — never per layer**:
+Arquitectura es una decisión, no un accidente. Antes de crear cualquier archivo, DEBES:
+
+1. **Detectar y Adaptar**: 
+   - Si es .NET: La arquitectura es **Vertical Slice + DDD**. Es obligatorio agrupar por funcionalidad.
+   - Si es Frontend (Angular/React/etc.): Agrupar por feature bajo `features/{feature}/` (componentes, servicios, rutas juntos).
+   - Si es otro stack: Adecuarte a las mejores prácticas del stack detectado (Feature-first es la preferencia general).
+2. **Declarar Contrato**: Registra el contrato de carpetas en `draft/{YYYYMMDD}/tasks/{NN}-{slug}/NOTES.md` (una línea: arquitectura + contrato de carpetas).
+3. **Seguir Contrato**: Debes seguir estrictamente la estructura de carpetas declarada en el plan del Planner.
+
+### .NET Vertical Slices (MANDATORIO)
+
+Una funcionalidad = un slice autosuficiente, agrupado en un folder por feature — nunca por capa:
 
 ```
 Features/{Context}/{Feature}/
-  {Feature}Command.cs        # or {Feature}Query.cs (ICommand<Result<T>> / IQuery<Result<T>>)
-  {Feature}Validator.cs      # optional Validator<T>
+  {Feature}Command.cs        # o {Feature}Query.cs (ICommand<Result<T>> / IQuery<Result<T>>)
+  {Feature}Validator.cs      # opcional Validator<T>
   {Feature}Handler.cs        # ICommandHandler / IQueryHandler
   {Feature}Endpoint.cs       # IEndpoint.MapEndpoint(IEndpointRouteBuilder)
   {Feature}Response.cs       # response DTO / read model (queries)
 ```
 
-Rules:
-- The folder is named after the **feature/use-case** (e.g. `Features/Orders/CreateOrder/`),
-  and holds its command/query, validator, handler, endpoint, and DTOs together.
-- DO NOT scatter a feature across top-level `Commands/`, `Handlers/`, `Queries/`,
-  `Endpoints/`, or `Validators/` folders.
-- A slice must be self-contained and regenerable. Cross-slice reuse goes to
-  `Features/{Context}/Shared/` or the Domain — never reach into another slice's internals.
-- Tests mirror the slice: `tests/Features/{Context}/{Feature}/`.
+Reglas:
+- El folder se nombra por la **funcionalidad/caso de uso** (ej. `Features/Orders/CreateOrder/`).
+- **PROHIBICIÓN**: No dispersar una funcionalidad en carpetas de nivel superior como `Commands/`, `Handlers/`, `Queries/`, `Endpoints/`, o `Validators/`.
+- Un slice debe ser autosuficiente y regenerable. El reuso entre slices se hace a través de `Features/{Context}/Shared/` o el Dominio — nunca llegando a los internos de otro slice.
+- Los tests deben espejar el slice: `tests/Features/{Context}/{Feature}/`.
 
-### Other architectures
+### Otros Stacks (Adaptativos)
 
-- **Clean / Layered**: organize by layer (`Domain/`, `Application/`, `Infrastructure/`,
-  `Api/`), but still keep each use-case cohesive inside `Application/` by feature.
-- **Modular Monolith**: one module per bounded context (`Modules/{Context}/`), each with
-  its own slices/layers and no cross-module internals.
-- **Frontend (Angular/React/etc.)**: group by feature under `features/{feature}/`
-  (components, services/state, routes, tests together), not by type-only folders.
-- **Language-agnostic / none detected**: state the layout you chose and keep it
-  consistent; prefer feature grouping over layer grouping.
+- **Frontend (Angular/React/etc.)**: Agrupar por feature bajo `features/{feature}/` (componentes, servicios, estado, rutas, tests juntos), no por carpetas de tipo solamente.
+- **Arquitectura No Detectada**: Si no hay un stack claro, mantén la consistencia con el layout elegido por el Planner; prefiere la agrupación por funcionalidad sobre la agrupación por tipo de archivo.
 
 ## Skill System
 

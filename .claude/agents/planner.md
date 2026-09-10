@@ -36,7 +36,20 @@ In BOTH modes you MUST also emit a machine-readable `TASKS.md` checklist (see "T
 Load `oro-libraries` (mandatory). Plan with these constraints without duplicating the skill:
 
 - Libraries are vendored at `<repo>/src/BuildingBlocks/` from `$HOME/Sources/BuildingBlocks` via relative `ProjectReference`. No NuGet feed, no `Oro*` packages.
-- Decompose backend work into vertical slices: one feature = one folder `Features/{Context}/{Feature}/` containing command/query + validator + handler + `IEndpoint` (+ response DTO), dispatched via `ISender`. Never plan layer-first folders (`Commands/`, `Handlers/`, `Endpoints/`).
+- **.NET Architecture (MANDATORIO - ARQUITECTURA FIJA)**:
+  Para cualquier proyecto .NET, la arquitectura **DEBE** ser **DDD + Vertical Slices**. No se aceptan excepciones ni estructuras por capas (Layered Architecture).
+  
+  - **DDD (Domain-Driven Design)**: 
+    - Uso de `AggregateRoot<Entity<TId>>` con `StronglyTypedId`.
+    - Aplicación de reglas de dominio mediante `CheckRule`/`RaiseDomainEvent`.
+    - Retornos de tipos `Result`/`Error` en lugar de excepciones de flujo de control.
+    - Uso de `Specification<T>` para consultas de negocio.
+  - **Vertical Slices (Organización de Carpetas)**:
+    - Una funcionalidad = un folder independiente: `Features/{Context}/{Feature}/`.
+    - Cada folder **DEBE** contener: Command/Query, Validator, Handler, Endpoint, y DTOs/Response.
+    - **PROHIBICIÓN EXPLÍCITA**: Nunca planificar carpetas por capas tecnológicas (`Commands/`, `Handlers/`, `Repositories/`, `Controllers/`).
+  - **Persistence**: Uso de `AppDbContextBase` + `AddUnitOfWork` + `AddOutbox`. Handlers deben usar `StageAsync` para eventos de integración y un único `SaveChangesAsync`.
+  - **Dependencies**: Uso de CPM (`Directory.Packages.props`) para externos. BuildingBlocks se referencian mediante `ProjectReference` relativo.
 - Persistence via `AppDbContextBase` + `AddUnitOfWork` + `AddOutbox`; handlers stage integration events (`IOutboxWriter`) then commit once. Never plan direct `IEventBus` publishes from handlers.
 - Queries as `Specification<T>`; failures as `Result`/`Error`; HTTP mapping via `Result → HTTP` extensions; host via `AddServiceDefaults` + `MapDefaultEndpoints` + `MapEndpoints`; Serilog only via `UseBuildingBlocksLogger`.
 - Externals and test packages via CPM (`Directory.Packages.props`, pinned versions).
