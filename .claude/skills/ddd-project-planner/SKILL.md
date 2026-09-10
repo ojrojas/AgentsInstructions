@@ -1,12 +1,14 @@
 ---
 name: ddd-project-planner
-description: Turns a business idea into a complete, ready-to-build project plan using Domain-Driven Design — domain discovery, bounded contexts, context map, ubiquitous language, aggregates/entities/value objects, architecture recommendation, backlog, user stories with Given/When/Then acceptance criteria, TDD strategy, and a sprint roadmap. Use this skill whenever the user wants to plan a new software product, describes a business idea and asks for a technical plan, asks for DDD modeling (bounded contexts, aggregates, ubiquitous language, context map), asks to turn an idea into a backlog/roadmap/sprints, or mentions planning a SaaS, ERP, CRM, marketplace, or enterprise system from scratch — even if they don't use the words "DDD" or "planner" explicitly. Also use it if the user asks to add "enterprise-level" rigor to a plan (ADRs, Event Storming, C4 model, NFR matrix, traceability matrix).
+description: Turns a business idea into a complete, ready-to-build project plan using Domain-Driven Design — domain discovery, bounded contexts, context map, ubiquitous language, aggregates/entities/value objects, architecture recommendation, backlog, user stories with Given/When/Then acceptance criteria, TDD strategy, and a sprint roadmap. Use this skill whenever the user wants to plan a new software product, describes a business idea and asks for a technical plan, asks for DDD modeling (bounded contexts, aggregates, ubiquitous language, context map), asks to turn an idea into a backlog/roadmap/sprints, or mentions planning a SaaS, ERP, CRM, marketplace, or enterprise system from scratch — even if they don't use the words "DDD" or "planner" explicitly. Also use it if the user asks to add "enterprise-level" rigor to a plan (ADRs, Event Storming, C4 model, NFR matrix, traceability matrix). Emits stable US-xx/FR-xx/NFR-xx IDs; when .NET is detected forces DDD + Vertical Slices (Features/{Context}/{Feature}/) per repo contract; appends an orchestrator-compatible Tasks/Phases + TASKS.md checklist appendix. Enterprise additions are a subset of SDD mode, not a separate trigger. Load explicitly via SDD request or Planner delegation (no `paths` auto-load).
 ---
 
 # DDD Project Planner
 
 Turns a business idea into a complete project plan: domain model, architecture, backlog, user
 stories, TDD strategy, and sprint roadmap — delivered as a single Markdown document.
+
+**SDD toolchain precedence**: when the Planner reports Phase 0.6 = `speckit` or `openspec`, this skill supplies the DOMAIN CONTENT (ubiquitous language, contexts, model, US/FR/NFR, ADRs) mapped into the tool's native artifacts (`specs/*/spec.md + plan.md + tasks.md` for spec-kit; `openspec/changes/*/proposal.md + specs + tasks.md` for OpenSpec) — it does NOT replace the tool's flow. Only when Phase 0.6 = `none (manual)` does this skill's own document structure act as the spec source of truth (plus the mandatory Appendix A execution contract).
 
 ## Step 1 — Gather input
 
@@ -73,17 +75,25 @@ Then propose the application and infrastructure shape:
   context, not exhaustive
 - **Infrastructure needs**: persistence, messaging, cache, external APIs, storage, email — only
   what the domain actually requires
-- **Architecture style recommendation**: pick one (Clean Architecture, Hexagonal/Ports & Adapters,
-  Modular Monolith, Microservices, Vertical Slice) based on project size and team size, and briefly
-  justify the choice — don't default to microservices for a small project.
-- **Tech stack**: use what the user specified; if unspecified, propose a stack and say it's a
-  suggestion the user can swap out.
+- **Architecture style recommendation**:
+  - Non-.NET stacks: pick one (Clean Architecture, Hexagonal/Ports & Adapters, Modular Monolith, Microservices, Vertical Slice) based on project size and team size, and briefly justify — don't default to microservices for a small project.
+  - **.NET override (mandatory, repo contract)**: architecture is ALWAYS **DDD tactical + Vertical Slices**. No Clean/Hexagonal/Microservices proposal for .NET. Tactical mapping: `AggregateRoot<Entity<TId>>` + `StronglyTypedId`, `CheckRule`/`RaiseDomainEvent`, `Result`/`Error` returns, `Specification<T>` queries, `AppDbContextBase` + `AddUnitOfWork` + `AddOutbox` (`StageAsync` then single `SaveChangesAsync`), dispatch via `ISender.SendAsync`, HTTP via `Result → HTTP` extensions. Externals via CPM.
+- **Tech stack**: use what the user specified; if unspecified, propose a stack and say it's a suggestion the user can swap out. When .NET is specified or detected, assume `oro-libraries` BuildingBlocks context.
+
+## Step 4b — Slice adapter (mandatory for .NET, recommended otherwise)
+
+Translate each MVP bounded context into executable slices BEFORE writing backlog IDs:
+
+- One feature = one folder `Features/{Context}/{Feature}/` with command/query + validator + handler + `IEndpoint` (+ response DTO). Never plan layer folders (`Commands/`, `Handlers/`, `Repositories/`, `Controllers/`).
+- Name every story so its slice folder is derivable (`{Context}/{Feature}` kebab-case slug).
+- Record one-liner signatures the Coder needs (no bodies, max one line each), e.g. `ISender.SendAsync<T>(IRequest<T>, ct)`, `IEndpoint.MapEndpoint(IEndpointRouteBuilder)`.
+- Non-.NET: same rule adapted — one feature = one folder (`features/{feature}/` with components/services/routes/tests together).
 
 ## Step 5 — Backlog and user stories
 
-Structure: **Epic → Features → Stories → Tasks**.
+Structure: **Epic → Features → Stories → Tasks**, with stable IDs throughout (`US-01…`, `FR-01…`, `NFR-01…`). Every `FR/NFR` MUST map to at least one task ID later (or be listed as uncovered → Open Question).
 
-For each user story use this exact template:
+For each user story use this exact template (ID required):
 
 ```
 ### [Story ID] Story title
@@ -102,14 +112,11 @@ backlog and the domain model stay traceable to each other.
 
 ## Step 6 — TDD strategy and sprint roadmap
 
-**TDD plan**: for each major use case, list the tests needed across levels — Unit, Integration,
-Contract, E2E — and note the Red → Green → Refactor cycle applies throughout. Don't write actual
-test code; this is a test *plan*, listing what needs coverage and why.
+**TDD plan (Tester-consumable)**: for each major use case, list tests across levels — Unit, Integration,
+Contract, E2E — as `Test notes` per future task (e.g. `unit: validator + handler Result paths; integration: POST round-trip + outbox StageAsync → processor → bus`). Note Red → Green → Refactor applies. .NET defaults: xUnit + Moq + coverlet via CPM, `Specification.IsSatisfiedBy` in unit tests, SQLite/Testcontainers over InMemory for EF integration. Don't write test code; this is a test *plan*.
 
-**Sprint roadmap**: group backlog epics into sprints in a sensible dependency order (e.g.
-Authentication & Users first, since most other contexts depend on identity). For each sprint list:
-sprint goal, contexts/features covered, and any dependencies on earlier sprints. Use judgment on
-sprint count based on project size — don't force a fixed number.
+**Sprint roadmap + Phase mapping**: group epics into sprints in dependency order (e.g.
+Authentication & Users first). For each sprint list: goal, contexts/features covered, dependencies. Additionally record a `Phases` derivation rule the Planner will use verbatim: `PARALLEL` when no overlapping written `Files` AND no data dependency; `SEQUENTIAL` when task B needs A's output, both write the same file, or shared files (`Program.cs`, `DbContext`, `Directory.Packages.props`) are touched. Sprints inform priority; Phases govern execution.
 
 ## Step 7 — Enterprise additions (only if Enterprise mode is on)
 
@@ -134,9 +141,8 @@ Add these sections when triggered (see Step 1):
 
 ## Output
 
-Deliver the plan as a **single Markdown file** (use the docx skill instead only if the user
-explicitly asks for a Word document). Structure it as one document with clear `##` headers in this
-order:
+Deliver the narrative plan as **one Markdown document** (use the docx skill instead only if the user
+explicitly asks for Word), with clear `##` headers in this order:
 
 ```
 1. Vision & Business Analysis
@@ -144,14 +150,49 @@ order:
 3. Domain Discovery (Core/Supporting/Generic)
 4. Bounded Contexts & Context Map
 5. Domain Model (per context: entities, value objects, aggregates, events)
-6. Architecture (style + justification, application layer, infrastructure)
-7. Backlog (epics → features → stories, with acceptance criteria)
-8. TDD Strategy
-9. Sprint Roadmap
-10. [Enterprise mode only] Event Storming, ADRs, NFR Matrix, Traceability Matrix, C4 Summary, DevOps Plan, Security Plan
-11. Risks & Technical Debt (call out anything deferred or simplified for the MVP)
+6. Architecture (style + justification, application layer, infrastructure; .NET → fixed Vertical Slice + DDD per Step 4 override)
+7. Backlog (epics → features → stories with US-xx IDs + Given/When/Then acceptance)
+8. Requirements traceability (FR-01…/NFR-01… each mapped to ≥1 future task ID or marked uncovered → Open Question)
+9. TDD Strategy (as Tester-consumable Test notes)
+10. Sprint Roadmap (+ Phase derivation rule)
+11. [Enterprise/SDD only] Event Storming, ADRs, NFR Matrix, Traceability Matrix, C4 Summary, DevOps Plan, Security Plan
+12. Risks & Technical Debt
 ```
 
-Keep every section proportional to the project's actual size — a small SaaS idea should not
-produce the same depth as a multi-context enterprise system. When in doubt, favor being complete
-over being short: this document is meant to be handed to a dev team to start building from.
+Then append **Appendix A — Orchestrator contract (mandatory, machine-readable)** so the Planner can paste it verbatim into `Tasks` + `Phases` + `TASKS.md` without re-deriving:
+
+```markdown
+## Tasks
+
+| ID | Description (WHAT outcome) | Files (created / modified, exact repo-relative) | Agent | Depends_on | Draft | Acceptance criteria | Test notes | Signatures (optional, one-liners, no bodies) |
+|---|---|---|---|---|---|---|---|---|
+| T01 | ... | creates `Features/{Context}/{Feature}/...` | Coder | — | `draft/{YYYYMMDD}/tasks/01-{slug}` | observable pass/fail | Tester-consumable notes | `ISender.SendAsync<T>(IRequest<T>, ct)` |
+
+## Phases
+
+### Phase 1: [Name] (PARALLEL — no overlapping WRITES, no data dependency)
+- T01 → Coder (Files: ...)
+
+### Phase 2: [Name] (depends on Phase 1, SEQUENTIAL)
+- T02 → Tester (Files: ...)
+
+# TASKS — {plan-slug}
+
+## [ ] T01 — {outcome}
+- [ ] Implementation in `tasks/01-{slug}/` (Files: `...`)
+- [ ] Acceptance criteria: {...}
+- [ ] `TEST-REPORT.md` → `Gate: PASS`
+- [ ] `DOC-REPORT.md` → `Gate: PASS`
+- [ ] `NOTES.md` recorded
+```
+
+Sizing rules for the appendix: one task = one concern, 1–4 files, independently testable; never overlap WRITES in one phase; shared files (`Program.cs`, `DbContext`, `Directory.Packages.props`, root configs) force sequential tasks; test work is its own task.
+
+Keep every section proportional to size. Trigger note: `enterprise` wording alone does not switch modes — Enterprise additions (§11) render only when the SDD/enterprise bar is met (multi-system, compliance/audit, or explicit ADRs/C4/NFR request); otherwise skip and keep the plan lean.
+
+## Self-check (run before returning)
+
+- [ ] Every `US-xx` has `Given/When/Then`; every `FR/NFR` traces to ≥1 task ID or is marked uncovered.
+- [ ] .NET plans use `Features/{Context}/{Feature}/` slices only (no layer folders).
+- [ ] Appendix A present with exact `Files`, valid `Draft` paths, acceptance + test notes, one-line signatures only.
+- [ ] No phase overlaps WRITES; dependencies acyclic.

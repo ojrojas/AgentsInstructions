@@ -47,56 +47,47 @@ These coding principles are mandatory:
    - Favor deterministic, testable behavior.
    - Keep tests simple and focused on verifying observable behavior.
 
-10. **Loading Skills and Rules**
-    - Load the relevant skill/rule for your tech stack from your provider's system before coding using standard activation skills and rules claude code.
-    - load the skills from rute ~/.claude/skills/ based on the detected tech stack and project type o user configs.
+10. **Loading Skills and Rules (universal)**
+    - Load the relevant skill for your tech stack via your runtime's native skill mechanism before coding.
+    - Resolve in cascade: (1) runtime skill dirs (opencode `~/.config/opencode/skills/`, Claude Code `~/.claude/skills/`, Codex `~/.codex/skills/`, Pi/MiniMax repo-local), (2) fallback to repo-local `.claude/skills/`. If a skill is missing, proceed with base rules and note it in `NOTES.md` — never hardcode a single provider path.
+
+**Provider compatibility (universal agents)**: Works with opencode, Claude Code, Codex, Pi agent, MiniMax Code, Copilot, and any runtime supporting universal agents.
 
 
 ## Architecture Selection (mandatory before coding)
 
-Architecture is a decision, not an accident. Before scaffolding files you MUST:
+Architecture is a decision, not an accident. `PLAN.md` is the authority — the Planner declares the contract, you follow it. Before scaffolding files you MUST:
 
-1. **Detect** the architecture the repo already uses (or the Planner declared) from folder
-   layout, project files, and the loaded skill. Do not mix architectures mid-repo.
-2. **Declare** the chosen architecture in `draft/{YYYYMMDD}/tasks/{NN}-{slug}/NOTES.md`
-   (one line: architecture + folder contract) before writing code.
-3. **Follow the matching folder contract** below. Layer-first folders are forbidden when
-   the chosen architecture is feature/slice-first.
+1. **Detect and adapt**:
+   - .NET → **Vertical Slice + DDD** (mandatory, feature-grouped; see below).
+   - Frontend (Angular/React/etc.) → feature-grouped under `features/{feature}/` (components, services, routes together).
+   - Other stacks → follow the stack skill's best practice (feature-first preferred). Do not mix architectures mid-repo.
+2. **Declare** the chosen architecture in `draft/{YYYYMMDD}/tasks/{NN}-{slug}/NOTES.md` (one line: architecture + folder contract) before writing code. Never edit `TASKS.md`.
+3. **Follow the matching folder contract** below exactly as the Planner declared it. Layer-first folders are forbidden when the contract is feature/slice-first.
 
-## Arquitectura (Selección Obligatoria antes de codificar)
+### .NET Vertical Slices (MANDATORY)
 
-Arquitectura es una decisión, no un accidente. Antes de crear cualquier archivo, DEBES:
-
-1. **Detectar y Adaptar**: 
-   - Si es .NET: La arquitectura es **Vertical Slice + DDD**. Es obligatorio agrupar por funcionalidad.
-   - Si es Frontend (Angular/React/etc.): Agrupar por feature bajo `features/{feature}/` (componentes, servicios, rutas juntos).
-   - Si es otro stack: Adecuarte a las mejores prácticas del stack detectado (Feature-first es la preferencia general).
-2. **Declarar Contrato**: Registra el contrato de carpetas en `draft/{YYYYMMDD}/tasks/{NN}-{slug}/NOTES.md` (una línea: arquitectura + contrato de carpetas).
-3. **Seguir Contrato**: Debes seguir estrictamente la estructura de carpetas declarada en el plan del Planner.
-
-### .NET Vertical Slices (MANDATORIO)
-
-Una funcionalidad = un slice autosuficiente, agrupado en un folder por feature — nunca por capa:
+One feature = one self-contained slice, grouped in a folder per feature — never per layer:
 
 ```
 Features/{Context}/{Feature}/
-  {Feature}Command.cs        # o {Feature}Query.cs (ICommand<Result<T>> / IQuery<Result<T>>)
-  {Feature}Validator.cs      # opcional Validator<T>
+  {Feature}Command.cs        # or {Feature}Query.cs (ICommand<Result<T>> / IQuery<Result<T>>)
+  {Feature}Validator.cs      # optional Validator<T>
   {Feature}Handler.cs        # ICommandHandler / IQueryHandler
   {Feature}Endpoint.cs       # IEndpoint.MapEndpoint(IEndpointRouteBuilder)
   {Feature}Response.cs       # response DTO / read model (queries)
 ```
 
-Reglas:
-- El folder se nombra por la **funcionalidad/caso de uso** (ej. `Features/Orders/CreateOrder/`).
-- **PROHIBICIÓN**: No dispersar una funcionalidad en carpetas de nivel superior como `Commands/`, `Handlers/`, `Queries/`, `Endpoints/`, o `Validators/`.
-- Un slice debe ser autosuficiente y regenerable. El reuso entre slices se hace a través de `Features/{Context}/Shared/` o el Dominio — nunca llegando a los internos de otro slice.
-- Los tests deben espejar el slice: `tests/Features/{Context}/{Feature}/`.
+Rules:
+- The folder is named after the **feature/use-case** (e.g. `Features/Orders/CreateOrder/`).
+- **FORBIDDEN**: do not scatter a feature across top-level `Commands/`, `Handlers/`, `Queries/`, `Endpoints/`, or `Validators/` folders.
+- A slice must be self-contained and regenerable. Cross-slice reuse goes through `Features/{Context}/Shared/` or the Domain — never reach into another slice's internals.
+- Tests mirror the slice: `tests/Features/{Context}/{Feature}/`.
 
-### Otros Stacks (Adaptativos)
+### Other stacks (adaptive)
 
-- **Frontend (Angular/React/etc.)**: Agrupar por feature bajo `features/{feature}/` (componentes, servicios, estado, rutas, tests juntos), no por carpetas de tipo solamente.
-- **Arquitectura No Detectada**: Si no hay un stack claro, mantén la consistencia con el layout elegido por el Planner; prefiere la agrupación por funcionalidad sobre la agrupación por tipo de archivo.
+- **Frontend (Angular/React/etc.)**: group by feature under `features/{feature}/` (components, services, state, routes, tests together), not by type-only folders.
+- **Undetected architecture**: keep consistency with the Planner's chosen layout; prefer feature grouping over type grouping.
 
 ## Skill System
 
@@ -155,6 +146,7 @@ If a skill exists for the detected stack, it MUST be loaded before generating co
 |---|---|
 | `author-component` | Create/review Blazor components with correct architecture |
 | `create-blazor-project` | Scaffold new Blazor Web App with render mode selection |
+| `blazor-auto-bff` | **MANDATORY for `-int Auto` + OIDC/BFF** — server token store, YARP forwarder, dual service registration |
 | `collect-user-input` | Build forms, validation, data entry UI |
 | `fetch-and-send-data` | Call APIs, load data, handle async lifecycle |
 | `coordinate-components` | Share state between unrelated components |

@@ -1,6 +1,6 @@
 # AgentsInstructions
 
-This project provides **agents** and **skills** for **Claude Code**, following the standard Claude Code Skills structure.
+This project provides **universal agents** and **skills** for opencode, Claude Code, Codex, Pi agent, MiniMax Code, Copilot, and any runtime supporting universal agents.
 
 Rules have been merged into skills using the `paths` frontmatter field for auto-loading.
 
@@ -48,19 +48,21 @@ Rules have been merged into skills using the `paths` frontmatter field for auto-
 └── README.md                  # This file
 ```
 
-## Installation
+## Installation (per provider)
 
-```bash
-./setup.sh
-```
+No single `setup.sh` is assumed (legacy reference removed — the script does not exist in this repo).
+Install per runtime, pointing at repo-local `.claude/agents/` + `.claude/skills/`:
 
-Running `setup.sh` creates symlinks in `~/.claude/` so agents and skills are available globally.
+- **opencode**: symlink or copy to `~/.config/opencode/agents/` + `~/.config/opencode/skills/`, or reference repo-local path.
+- **Claude Code**: symlink to `~/.claude/agents/` + `~/.claude/skills/`.
+- **Codex**: symlink to `~/.codex/agents/` + `~/.codex/skills/` (or repo-local reference per your setup).
+- **Pi agent / MiniMax Code**: reference repo-local `.claude/agents/` + `.claude/skills/` directly (no global install assumed).
 
 ## Usage
 
 ### Skills (auto-load with paths)
 
-Skills with a `paths` frontmatter field auto-load when Claude Code detects matching file types:
+Skills with a `paths` frontmatter field auto-load when your runtime detects matching file types (Claude Code / opencode paths-aware loaders; otherwise load manually with fallback to repo-local `.claude/skills/`):
 
 - `.cs`, `.csproj`, `.slnx`, `.props` files → oro-libraries (vendored BuildingBlocks), dotnet-core, efcore-patterns
 - `.ts`, `.html` files → angular-developer, ngrx-signal-store
@@ -71,11 +73,7 @@ Skills without `paths` are invoked on demand via `/<skill-name>`.
 
 ### Agents
 
-Load an agent in Claude Code with:
-
-```
-/agent <name>
-```
+Load an agent via your runtime's native subagent mechanism (e.g. Claude Code `/agent <name>`, opencode `task`, Codex/Pi/MiniMax subagent call):
 
 Available agents: `coder`, `designer`, `documenter`, `orchestrator`, `planner`, `tester`.
 

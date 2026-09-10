@@ -1,6 +1,6 @@
 # AgentsInstructions
 
-This project provides **agents** and **skills** for Claude Code following the standard Claude Code Skills structure.
+This project provides **universal agents** and **skills** (markdown agent defs + SKILL.md) for opencode, Claude Code, Codex, Pi agent, MiniMax Code, Copilot, and any runtime supporting universal agents.
 
 Rules have been merged into skills using the `paths` frontmatter field for auto-loading.
 
@@ -14,10 +14,8 @@ Specialized agents in `.claude/agents/`:
 | Designer | `.claude/agents/designer.md` | Handles all UI/UX design tasks |
 | Orchestrator | `.claude/agents/orchestrator.md` | Coordinates complex feature implementations |
 | Planner | `.claude/agents/planner.md` | Creates implementation plans |
-| Backend C# | `.claude/agents/backend-csharp.md` | .NET DDD/CQRS backend development |
-| Frontend Angular | `.claude/agents/frontend-angular.md` | Angular/ngRx Signals frontend development |
-| Fullstack Identity | `.claude/agents/fullstack-identity.md` | End-to-end identity server development |
-| Testing Engineer | `.claude/agents/testing-engineer.md` | Automated testing across the stack |
+| Documenter | `.claude/agents/documenter.md` | Architecture docs, ADRs, API references |
+| Tester | `.claude/agents/tester.md` | Automated testing across the stack |
 
 ## Skills
 
@@ -37,8 +35,8 @@ Reusable skills in `.claude/skills/`:
 
 ## Usage
 
-1. Install globally: `./setup.sh`
-2. Skills auto-load based on project file types (when `paths` is set)
-3. Load an agent with `/agent <name>`
-4. Invoke a skill directly with `/<skill-name>`
+1. Install per provider (opencode / Claude Code / Codex / Pi / MiniMax — see `README.md`; no single `setup.sh` is assumed)
+2. Skills auto-load based on project file types (when `paths` is set) or via your runtime's native skill mechanism, fallback to repo-local `.claude/skills/`
+3. Load an agent via your runtime's native subagent mechanism
+4. Invoke a skill directly with `/<skill-name>` (or runtime equivalent)
 5. The orchestrator agent delegates to specialist agents

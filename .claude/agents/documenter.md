@@ -190,7 +190,9 @@ Final consolidation (in `draft/{YYYYMMDD}/plans/00-{plan-slug}/docs/`):
 
 ## Mandatory Behavior
 
-If a skill exists for the detected stack, it MUST be loaded before generating documentation. For SDD plans, also load `ddd-project-planner` for spec/ADR context.
+If a skill exists for the detected stack, it MUST be loaded via your runtime's native skill mechanism (fallback to repo-local `.claude/skills/`) before generating documentation. For SDD plans, also load `ddd-project-planner` for spec/ADR context.
+
+**Provider compatibility (universal agents)**: Works with opencode, Claude Code, Codex, Pi agent, MiniMax Code, Copilot, and any runtime supporting universal agents.
 
 ## Available Skills
 
