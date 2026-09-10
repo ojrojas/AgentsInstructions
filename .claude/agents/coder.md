@@ -76,7 +76,7 @@ If a skill exists for the detected stack, it MUST be loaded before generating co
 ### .NET / C# — Backend & Web API
 | Skill | Description |
 |---|---|---|
-| `oro-libraries` | **MANDATORY** — Use OroCQRS, OroBuildingBlocks, OroKernel from GitHub Packages; enforce Central Package Management |
+| `oro-libraries` | **MANDATORY** — Vendored BuildingBlocks from `$HOME/Sources/BuildingBlocks` copied to `src/BuildingBlocks` (relative ProjectReference): CQRS (`AddCqrs`/`SendAsync`), Kernel.Domain/Infrastructure (aggregates, specifications, `AppDbContextBase`, outbox), EventBus.RabbitMQ, ServiceDefaults (`AddServiceDefaults`/`MapDefaultEndpoints`/`MapEndpoints`), Logger; CPM for externals only |
 | `dotnet-webapi` | Create/modify ASP.NET Core Web API endpoints, OpenAPI metadata, error handling |
 | `dotnet-core` | .NET Core backend development rules and conventions |
 | `minimal-api-file-upload` | File upload endpoints in ASP.NET minimal APIs (.NET 8+) |
@@ -192,20 +192,17 @@ If a skill exists for the detected stack, it MUST be loaded before generating co
 | Skill | Description |
 |---|---|
 | `ngrx-signal-store` | NgRx SignalStore — store creation, entity management, effects, testing |
-| `angular` | Angular development best practices (auto-loads on .ts/.html) |
-| `angular-create-feature` | Scaffold Angular feature modules |
+| `angular-developer` | Angular best practices, feature scaffolding via CLI, signals, routing, forms, testing (auto-loads on .ts/.html) |
 
 ### Shared / Architecture (applies to all stacks)
 | Skill | Description |
 |---|---|
-| `architecture` | Clean Architecture guidance for .NET projects |
-| `conventions` | Coding conventions reference |
-| `project-rules` | Strict development and process rules |
+| `ddd-project-planner` | DDD project planning — bounded contexts, aggregates, backlog and roadmap |
 
 ### .NET - Test (applies to all projects net10 | net11)
 | Skill | Description |
 |---|---|
-| `dotnet-test` | Multimultiple agents to create unit testing |
+| `code-testing-agent` | Generate unit tests for any language via Research-Plan-Implement pipeline |
 
 ### Skill Priority
 

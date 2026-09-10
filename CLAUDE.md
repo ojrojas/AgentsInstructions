@@ -25,23 +25,15 @@ Reusable skills in `.claude/skills/`:
 
 | Skill | Description | Auto-loads On |
 |---|---|---|
-| `angular` | Angular development best practices | `**/*.ts`, `src/app/**/*.html` |
-| `angular-create-feature` | Scaffold Angular feature modules | — |
-| `architecture` | Clean Architecture guidance | `**/*.cs`, `**/*.csproj`, `**/*.slnx` |
-| `oro-libraries` | OroCQRS, OroBuildingBlocks, OroKernel integration + CPM | `**/*.cs`, `**/*.csproj`, `**/*.slnx`, `**/*.props` |
-| `backend-netcore` | .NET DDD/CQRS backend scaffolding | `**/*.cs`, `**/*.csproj` |
-| `blazor` | Blazor client-server patterns | `**/*.razor`, `**/*.cs` |
-| `conventions` | Coding conventions reference | `**/*.cs`, `**/*.ts`, `**/*.razor`, `**/*.csproj` |
-| `create-endpoint` | Minimal API endpoint templates | — |
+| `angular-developer` | Angular best practices, scaffolding, signals, routing, testing | `**/*.ts`, `src/app/**/*.html` |
+| `oro-libraries` | Vendored BuildingBlocks (CQRS, Kernel.Domain/Infrastructure, EventBus/RabbitMQ, ServiceDefaults, Logger) + CPM for externals | `**/*.cs`, `**/*.csproj`, `**/*.slnx`, `**/*.props` |
+| `author-component` | Blazor component architecture | `**/*.razor`, `**/*.cs` |
 | `create-new-module` | Complete DDD module scaffolding | — |
 | `create-specification` | Specification pattern for queries | — |
 | `create-value-object` | Strongly-typed Value Objects | — |
-| `fluentui-blazor` | Fluent UI Blazor component library | `**/*.razor` |
 | `implement-cqrs-command` | CQRS command implementation | — |
 | `implement-cqrs-query` | CQRS query implementation | — |
 | `ngrx-signal-store` | NgRx SignalStore state management | `**/*.ts`, `**/*.store.ts` |
-| `project-rules` | Strict development and process rules | `**/*.cs`, `**/*.ts`, `**/*.razor`, `**/*.csproj` |
-| `testing` | Testing strategy and patterns | `**/*.cs`, `**/*.ts`, `**/*.csproj` |
 
 ## Usage
 

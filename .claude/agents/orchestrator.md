@@ -23,21 +23,39 @@ You MUST follow this structured execution pattern:
 ### Step 1: Get the Plan
 Call the Planner agent with the user's request. The Planner will return implementation steps.
 
-**CRITICAL**: In every execution phase, you MUST instruct the Planner to write each task to a
-dedicated folder using this naming convention:
+**CRITICAL — Register the plan FIRST**: before parsing, phasing, or spawning ANY
+subagent, persist the complete Planner response to a plan folder using this naming
+convention:
 
 ```
-draft/tasks/{date-task}/{num-task}-{name-task}
+draft/{date-task}/{num-task}-{name-task}/PLAN.md
 ```
 
 Where:
 - `{date-task}` — the execution date in `YYYYMMDD` format (e.g. `20260909`)
-- `{num-task}` — the sequential task number within the phase, zero-padded (e.g. `01`, `02`)
-- `{name-task}` — a short, kebab-case task name (e.g. `theme-context`)
+- `{num-task}` — the sequential plan number for that date, zero-padded (e.g. `00` for the plan; tasks start at `01`)
+- `{name-task}` — a short, kebab-case slug describing the requested work (e.g. `order-feature`)
 
-Example: `draft/tasks/20260909/01-theme-context`
+Example: `draft/20260909/00-order-feature/PLAN.md`
 
-Pass this folder path to the Planner for every task before delegating implementation to the Coder.
+Rules:
+- The plan is ALWAYS registered first. Do NOT parse into phases, do NOT call Coder/Designer/Tester, until `PLAN.md` exists.
+- The registered `PLAN.md` is the source of truth for the whole execution. If the plan changes mid-flight, append a new version as `PLAN-v2.md` in the same folder — never overwrite `PLAN.md`.
+- Report the plan folder path when you finish this step so every later phase references it.
+
+**CRITICAL**: In every execution phase, you MUST instruct each implementation agent to
+work scoped to a dedicated task folder using the same naming convention:
+
+```
+draft/{date-task}/{num-task}-{name-task}
+```
+
+Where `{num-task}` continues the sequence (`01`, `02`, …) and `{name-task}` is the
+kebab-case task name (e.g. `theme-context`).
+
+Example: `draft/20260909/01-theme-context`
+
+Pass this folder path to the agent for every task before delegating implementation.
 
 ### Step 2: Parse Into Phases
 The Planner's response includes **file assignments** for each step. Use these to determine parallelization:
@@ -51,19 +69,20 @@ Output your execution plan like this:
 
 ```
 ## Execution Plan
+(Registered plan: draft/20260909/00-[plan-slug]/PLAN.md)
 
 ### Phase 1: [Name]
 - Task 1.1: [description] → Coder
-  Draft: draft/tasks/20260909-01-[name-task]
+  Draft: draft/20260909/01-[name-task]
   Files: src/contexts/ThemeContext.tsx, src/hooks/useTheme.ts
 - Task 1.2: [description] → Designer
-  Draft: draft/tasks/20260909-02-[name-task]
+  Draft: draft/20260909/02-[name-task]
   Files: src/components/ThemeToggle.tsx
 (No file overlap → PARALLEL)
 
 ### Phase 2: [Name] (depends on Phase 1)
 - Task 2.1: [description] → Coder
-  Draft: draft/tasks/20260909-03-[name-task]
+  Draft: draft/20260909/03-[name-task]
   Files: src/App.tsx
 ```
 
@@ -81,8 +100,8 @@ When the implementation phase completes, you MUST validate and run the unit test
 in the current phase before proceeding to the next phase:
 
 1. **Validate** — Confirm the implementation exists in the task's folder
-   (`draft/tasks/{date-task}{num-task}{name-task}`) and compiles/meets the acceptance criteria
-   from the plan.
+   (`draft/{date-task}/{num-task}-{name-task}`) and compiles/meets the acceptance criteria
+   from the registered plan (`draft/{date-task}/00-{plan-slug}/PLAN.md`).
 2. **Run unit tests** — Delegate to the Tester agent to run the unit tests for all tasks in the
    current phase. The Tester must run tests, report results, and fix any failures.
 3. **Block progression** — Do NOT start the next phase until all tests for the current phase pass.
@@ -155,12 +174,12 @@ When the task involves .NET Core projects, you MUST include these requirements
 in the delegation prompt to both the Coder and Tester agents:
 
 ### For Coder delegations
-1. **"Use Central Package Management (CPM)** — Create/update `Directory.Packages.props` with `ManagePackageVersionsCentrally=true`. No hardcoded versions in .csproj."
-2. **"Use Oro libraries from GitHub Packages** — Configure `nuget.config` with source `https://nuget.pkg.github.com/ojrojas/index.json`. Reference packages: `OroCQRS`, `OroKernel.Shared`, `OroServiceDefaults`, `OroEventBus`, `OroEventBusRabbitMQ`, `OroLoggers`."
-3. **"Use OroCQRS as mediator** — Register via `builder.Services.AddCqrsHandlers()`. Use `ISender` for dispatching commands/queries/notifications."
-4. **"Use OroBuildingBlocks** — Call `builder.AddServiceDefaults()` and `app.MapDefaultEndpoints()` for OpenTelemetry, health checks, resilience."
-5. **"Use OroKernel for entities and auditing** — Inherit from `BaseEntity`, use `AuditableDbContext` for automatic audit tracking."
+1. **"Vendor BuildingBlocks from $HOME** — Copy `$HOME/Sources/BuildingBlocks/src/BuildingBlocks.*` to `<repo>/src/BuildingBlocks/` and reference via relative `ProjectReference`. Never hardcode `/home/oroja`, never use `nuget.pkg.github.com/ojrojas` or `Oro*` packages. Load the `oro-libraries` skill."
+2. **"Use BuildingBlocks.CQRS as dispatcher** — Register via `AddCqrs(c => c.RegisterHandlersFromAssemblyContaining<Program>().AddOpenBehavior(LoggingBehavior).AddOpenBehavior(ValidationBehavior))`. Dispatch via `ISender.SendAsync`. One vertical slice per feature (command/query + validator + handler + `IEndpoint`)."
+3. **"Use Kernel.Domain + Infrastructure** — `AggregateRoot<Entity<TId>>` with `StronglyTypedId`, `CheckRule`/`RaiseDomainEvent`, `Result`/`Error` returns, `Specification` + `EfRepository`. `DbContext` inherits `AppDbContextBase` with `OutboxEntityTypeConfiguration`; register `AddUnitOfWork` + `AddOutbox`; handlers `StageAsync` then single `SaveChangesAsync`."
+4. **"Use ServiceDefaults + EventBus + Logger** — `builder.AddServiceDefaults()`, `AddRabbitMqEventBus(Configuration).AddSubscription<TEvent, THandler>()` (`EventBus:RabbitMq` section), `AddEndpoints(assembly)`, `AddExceptionHandler<GlobalExceptionHandler>` + `AddProblemDetails`; then `UseExceptionHandler()` + `MapDefaultEndpoints()` (`/health`, `/alive`) + `MapEndpoints()`. Serilog only via `UseBuildingBlocksLogger`. Map `Result` with `ToHttpResult`/`ToCreatedResult`."
+5. **"Use CPM for externals only** — `Directory.Packages.props` with `ManagePackageVersionsCentrally=true` for third-party/test packages with pinned versions. No `Version="*"`, no versions in `.csproj`, no `PackageReference` to BuildingBlocks (those are `ProjectReference`)."
 
 ### For Tester delegations
 1. **"Use Central Package Management** — Test packages must be in `Directory.Packages.props`, not versioned in test .csproj."
-2. **"Follow the testing skill** — Use xUnit, Moq, and coverlet for .NET test projects."
+2. **"Follow the testing skill** — Use xUnit, Moq, and coverlet for .NET test projects. Cover specifications via `IsSatisfiedBy`, `Result`/`Error` paths, idempotent integration handlers, and the outbox flow (`StageAsync` → `OutboxProcessor` → bus)."

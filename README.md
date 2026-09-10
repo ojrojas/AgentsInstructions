@@ -21,7 +21,7 @@ Rules have been merged into skills using the `paths` frontmatter field for auto-
 │       ├── create-new-module/          # DDD module scaffolding
 │       ├── create-specification/       # Specification pattern
 │       ├── create-value-object/        # Value Objects
-│       ├── oro-libraries/             # OroCQRS, OroBuildingBlocks, OroKernel + CPM
+│       ├── oro-libraries/             # Vendored BuildingBlocks (CQRS, Kernel, EventBus, ServiceDefaults, Logger) + CPM
 │       ├── dotnet-ai/                 # AI/ML & MCP servers
 │       ├── dotnet-aspnet/             # ASP.NET Core Web APIs
 │       ├── dotnet-blazor/             # Blazor components & patterns
@@ -62,10 +62,10 @@ Running `setup.sh` creates symlinks in `~/.claude/` so agents and skills are ava
 
 Skills with a `paths` frontmatter field auto-load when Claude Code detects matching file types:
 
-- `.cs`, `.csproj`, `.slnx`, `.props` files → architecture, backend-netcore, conventions, project-rules, testing, oro-libraries
-- `.ts`, `.html` files → angular, ngrx-signal-store, conventions, project-rules, testing
-- `.razor` → blazor, fluentui-blazor, conventions, project-rules
-- Test files → testing
+- `.cs`, `.csproj`, `.slnx`, `.props` files → oro-libraries (vendored BuildingBlocks), dotnet-core, efcore-patterns
+- `.ts`, `.html` files → angular-developer, ngrx-signal-store
+- `.razor` → author-component and the dotnet-blazor skill family
+- Test files → code-testing-agent, run-tests
 
 Skills without `paths` are invoked on demand via `/<skill-name>`.
 

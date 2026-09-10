@@ -143,7 +143,6 @@ If a skill exists for the detected stack, it MUST be loaded before generating do
 
 When generating documentation, load relevant skills from these categories based on the project type:
 
-- **General**: `conventions`, `project-rules`, `architecture`
-- **Testing docs**: `testing`
-- **Backend docs**: `backend-netcore`, `efcore-patterns`, `dotnet-webapi`
-- **Frontend docs**: `angular`, `ngrx-signal-store`, `blazor`
+- **General**: `ddd-project-planner`
+- **Backend docs**: `create-new-module`, `efcore-patterns`, `dotnet-webapi`
+- **Frontend docs**: `angular-developer`, `ngrx-signal-store`, `author-component`

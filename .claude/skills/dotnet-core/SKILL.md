@@ -1,3 +1,14 @@
+---
+name: dotnet-core
+description: >
+  .NET Core backend development rules and conventions — modern C# and .NET
+  features, minimal APIs, vertical slices, performance defaults, observability
+  and error handling. Use for .NET backend work.
+paths:
+  - "**/*.cs"
+  - "**/*.csproj"
+---
+
 # .NET Core Backend Skill (C# 14 / .NET 10)
 
 ## Core Rules

@@ -1,10 +1,12 @@
 ---
 name: oro-libraries
 description: >
-  Mandatory skill for all .NET Core projects. Enforces use of the Oro
-  ecosystem (OroCQRS, OroBuildingBlocks, OroKernel) from the GitHub Packages
-  NuGet feed at nuget.pkg.github.com/ojrojas, and Central Package Management
-  (CPM) via Directory.Packages.props.
+  Mandatory skill for all .NET Core projects. Enforces use of the vendored
+  BuildingBlocks (Kernel.Domain, CQRS, EventBus, EventBus.RabbitMQ,
+  Kernel.Infrastructure, ServiceDefaults, Logger) copied from
+  $HOME/Sources/BuildingBlocks into <repo>/src/BuildingBlocks and referenced
+  via relative ProjectReference, plus Central Package Management (CPM) for
+  external/test packages only.
 paths:
   - "**/*.cs"
   - "**/*.csproj"
@@ -12,518 +14,292 @@ paths:
   - "**/*.props"
 ---
 
-# Oro Libraries & Central Package Management
+# BuildingBlocks (vendored) & Central Package Management
 
-## 1. NuGet Source Configuration
+Canonical source of the libraries (never hardcode a concrete home path, always
+use the variable):
 
-All .NET Core projects MUST reference the Oro packages from the GitHub
-Packages NuGet feed. Create or update `nuget.config` at the repository root:
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <packageSources>
-    <clear />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-    <add key="github-ojrojas" value="https://nuget.pkg.github.com/ojrojas/index.json" />
-  </packageSources>
-  <packageSourceCredentials>
-    <github-ojrojas>
-      <add key="Username" value="ojrojas" />
-      <add key="ClearTextPassword" value="%GITHUB_PACKAGES_TOKEN%" />
-    </github-ojrojas>
-  </packageSourceCredentials>
-</configuration>
+```bash
+$HOME/Sources/BuildingBlocks
 ```
 
-The `GITHUB_PACKAGES_TOKEN` environment variable must contain a GitHub PAT
-with `read:packages` scope.
+Reference docs live in that repo (`README.md` at its root and
+`examples/Identity/README.md`). This skill does NOT duplicate them; it defines
+HOW to integrate the libraries into a new repo. When in doubt about behavior,
+read the source under `$HOME/Sources/BuildingBlocks/src/`.
 
-## 2. Central Package Management (CPM) — Mandatory
+Available library projects (under `$HOME/Sources/BuildingBlocks/src/`):
 
-Every repository with multiple .NET projects MUST use CPM. Single-project
-repos SHOULD also use it for consistency.
+- `BuildingBlocks.Kernel.Domain` — entities, aggregates, strongly-typed IDs, value objects, `Result`/`Error`, specifications.
+- `BuildingBlocks.CQRS` — `ISender` dispatcher, handlers, pipeline behaviors, lightweight validation.
+- `BuildingBlocks.EventBus` — `IntegrationEvent`, `IEventBus`, subscription manager.
+- `BuildingBlocks.EventBus.RabbitMQ` — RabbitMQ bus over durable topic exchange.
+- `BuildingBlocks.Kernel.Infrastructure` — `AppDbContextBase`, `EfRepository`, transactional outbox.
+- `BuildingBlocks.ServiceDefaults` — OpenTelemetry, health checks, resilient HTTP, `IEndpoint` slices, `Result → HTTP`, `GlobalExceptionHandler`.
+- `BuildingBlocks.Logger` — Serilog wiring (Console, File, Loki, Seq).
 
-### 2.1 Directory.Packages.props
+Multi-target of the libraries: `net10.0` and `net11.0`. Exception: Blazor WASM
+hosts stay on `net10.0` only (see `examples/Identity` notes).
 
-Create `Directory.Packages.props` at the repository root:
+## 1. Vendoring (mandatory consumption model)
+
+Do NOT consume these libraries from any NuGet feed. Do NOT add a
+`nuget.config` source for them. The workflow is:
+
+1. Copy the library sources into the destination repo:
+
+   ```bash
+   mkdir -p "<repo>/src/BuildingBlocks"
+   cp -r "$HOME/Sources/BuildingBlocks/src/BuildingBlocks."* "<repo>/src/BuildingBlocks/"
+   ```
+
+2. Reference them with **relative `ProjectReference`** from the service
+   projects (same pattern as `examples/Identity/Identity.Server.csproj`):
+
+   ```xml
+   <ItemGroup>
+     <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.CQRS\BuildingBlocks.CQRS.csproj" />
+     <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.EventBus\BuildingBlocks.EventBus.csproj" />
+     <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.EventBus.RabbitMQ\BuildingBlocks.EventBus.RabbitMQ.csproj" />
+     <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.Kernel.Domain\BuildingBlocks.Kernel.Domain.csproj" />
+     <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.Kernel.Infrastructure\BuildingBlocks.Kernel.Infrastructure.csproj" />
+     <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.ServiceDefaults\BuildingBlocks.ServiceDefaults.csproj" />
+     <!-- Logger only when Serilog file/Loki/Seq sinks are needed -->
+     <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.Logger\BuildingBlocks.Logger.csproj" />
+   </ItemGroup>
+   ```
+
+   Adjust the relative depth (`..`) to the real location of the consuming
+   `.csproj`. Never use absolute paths and never hardcode `/home/oroja`.
+
+3. Keep the vendored copy at `src/BuildingBlocks/` at the repo root (or under
+   `src/` next to the services). Do not rename the library project folders.
+
+## 2. Central Package Management (externals only)
+
+`Directory.Packages.props` with `ManagePackageVersionsCentrally=true` is
+mandatory, but ONLY for external/third-party packages (EF Core providers,
+`RabbitMQ.Client`, OpenTelemetry, Serilog, OpenIddict, test packages, etc.)
+and NEVER for the vendored BuildingBlocks (those are `ProjectReference`).
 
 ```xml
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-  <!-- Oro packages (always pinned) -->
   <ItemGroup>
-    <PackageVersion Include="OroCQRS" Version="1.0.0" />
-    <PackageVersion Include="OroKernel.Shared" Version="1.0.1" />
-    <PackageVersion Include="OroServiceDefaults" Version="*" />
-    <PackageVersion Include="OroLoggers" Version="*" />
-    <PackageVersion Include="OroEventBus" Version="*" />
-    <PackageVersion Include="OroEventBusRabbitMQ" Version="*" />
+    <!-- Examples — pin real versions, never "*" -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+    <PackageVersion Include="RabbitMQ.Client" Version="7.1.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Test packages live here too -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.0" />
   </ItemGroup>
 </Project>
 ```
 
-Replace `Version="*"` with the actual latest version once published.
+Rules:
 
-### 2.2 Directory.Build.props — Central Imports & Defaults
+- No `Version="*"` anywhere.
+- No versions inside `.csproj` (`<PackageReference Include="xunit" />` only).
+- Shared defaults (`Nullable enable`, `ImplicitUsings enable`, `LangVersion latest`)
+  belong in `Directory.Build.props`.
 
-```xml
-<Project>
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-</Project>
-```
+## 3. BuildingBlocks.CQRS — dispatcher + Vertical Slice
 
-### 2.3 Referencing packages in .csproj (no version — comes from CPM)
-
-```xml
-<ItemGroup>
-  <PackageReference Include="OroCQRS" />
-  <PackageReference Include="OroKernel.Shared" />
-  <PackageReference Include="OroServiceDefaults" />
-  <PackageReference Include="OroEventBusRabbitMQ" />
-</ItemGroup>
-```
-
-## 3. OroCQRS — Lightweight CQRS/Mediator (Package: `OroCQRS`)
-
-Replaces MediatR. Targets `net10.0`, requires `Microsoft.AspNetCore.App`.
-
-### 3.1 NuGet Package
-
-| Field | Value |
-|---|---|
-| PackageId | `OroCQRS` |
-| Version | `1.0.0` |
-| Namespace (root) | `OroCQRS.Core` |
-
-### 3.2 Message Interfaces
+Registration (order of behaviors matters — Logging first, Validation second):
 
 ```csharp
-using OroCQRS.Core.Interfaces;
-
-// Marker — base of all messages
-public interface IBaseMessage
-{
-    Guid CorrelationId();
-}
-
-// Requests (with or without result)
-public interface IRequest : IBaseMessage;
-public interface IRequest<out IResult> : IBaseMessage;
-
-// Commands (void or with result)
-public interface ICommand : IRequest;
-public interface ICommand<out TResult> : IRequest<TResult>;
-
-// Queries (always return result)
-public interface IQuery<out TResult> : IRequest<TResult>;
-
-// Notifications (void or with result)
-public interface INotification : IRequest;
-public interface INotification<out TResult> : IRequest<TResult>;
+builder.Services.AddCqrs(cqrs => cqrs
+    .RegisterHandlersFromAssemblyContaining<Program>()
+    .AddOpenBehavior(typeof(LoggingBehavior<,>))
+    .AddOpenBehavior(typeof(ValidationBehavior<,>)));
 ```
 
-### 3.3 Handler Interfaces
+Notes:
+
+- `AddCqrs` registers `ISender` → `Sender` (scoped) and
+  `IDomainEventDispatcher` → `DomainEventDispatcher` (scoped), plus every
+  `IRequestHandler<,>`, `IDomainEventHandler<>` and `IValidator<>` found in the
+  given assemblies.
+- Dispatch exclusively through `ISender.SendAsync<TResponse>(IRequest<TResponse>, ct)`.
+  There is a single handler per request type.
+- Organize each feature as a vertical slice in one folder/file: command or query
+  record (`ICommand<Result<T>>` / `IQuery<Result<T>>`), optional
+  `Validator<T>` with `RuleFor(...)`, handler
+  (`ICommandHandler<TCommand, Result<T>>` / `IQueryHandler<TQuery, Result<T>>`),
+  and endpoint (see §6).
+- Domain events raised by aggregates are handled in-process via
+  `IDomainEventHandler<TEvent>`; cross-service communication uses the outbox +
+  EventBus (§5-§6), never domain event handlers directly.
+
+## 4. Kernel.Domain — modelling rules
+
+- Entities: inherit `Entity<TId>` (identity equality). Aggregates: inherit
+  `AggregateRoot<TId>` and mutate only through factory methods / intention-named
+  methods that call `CheckRule(new SomeRule(...))` and then
+  `RaiseDomainEvent(new SomethingHappenedDomainEvent(...))`.
+- IDs: declare `public sealed record OrderId(Guid Value) : StronglyTypedId<Guid>(Value);`
+  and configure the EF conversion in the `DbContext`.
+- Value objects: inherit `ValueObject`; enumerations: inherit
+  `Enumeration<TEnum>`.
+- Return `Result` / `Result<TValue>` from handlers (and domain factories where
+  relevant) instead of throwing for expected failures. Build failures with
+  `Error.Validation / .NotFound / .Conflict / .Unauthorized / .Forbidden / .Failure`.
+- Queries: express them as `Specification<T>` subclasses calling `Where(...)`
+  (accumulative AND), composed with `.And(...)` / `.Or(...)` / `.Not(...)`,
+  plus `AddInclude`, ordering, paging, and `ApplyAsNoTracking()` for reads.
+  Reuse `IsSatisfiedBy(entity)` in unit tests.
+
+## 5. Kernel.Infrastructure — DbContext, repository, outbox
+
+1. The service `DbContext` MUST inherit
+   `AppDbContextBase(DbContextOptions, IDomainEventDispatcher)`. Its
+   `SaveChangesAsync` drains aggregate domain events through the dispatcher
+   before committing, so handler side-effects join the same transaction.
+2. Register the context with EF (`AddDbContext<TDbContext>(o => o.UseNpgsql(...))`
+   or the provider in use), then:
+
+   ```csharp
+   builder.Services.AddUnitOfWork<OrdersDbContext>();
+   builder.Services.AddOutbox<OrdersDbContext>();
+   ```
+
+   `AddUnitOfWork` exposes the already-registered context as `IUnitOfWork`.
+   `AddOutbox` registers `IOutboxWriter` (scoped) and the background
+   `OutboxProcessor<TDbContext>`.
+3. Include the outbox entity in the model:
+
+   ```csharp
+   protected override void OnModelCreating(ModelBuilder modelBuilder)
+   {
+       modelBuilder.ApplyConfiguration(new OutboxEntityTypeConfiguration());
+       // ... rest of the model
+   }
+   ```
+
+4. Flow inside a command handler: load/create aggregate via
+   `IRepository<TAggregate, TId>` (`EfRepository`, specification-capable:
+   `GetByIdAsync`, `AddAsync`, `FirstOrDefaultAsync(spec)`, `ListAsync(spec)`,
+   `AnyAsync`/`CountAsync`), call `IOutboxWriter.StageAsync(new
+   SomethingIntegrationEvent(...), ct)` for cross-service facts, then a single
+   `IUnitOfWork.SaveChangesAsync(ct)`. Never publish to `IEventBus` directly
+   from the handler — the outbox processor does it after commit.
+
+## 6. ServiceDefaults + EventBus wiring in `Program.cs`
+
+Canonical order:
 
 ```csharp
-// Command Handlers
-public interface ICommandHandler<in TCommand> where TCommand : ICommand
-{
-    Task HandleAsync(TCommand command, CancellationToken cancellationToken);
-}
-public interface ICommandHandler<in TCommand, TResult> where TCommand : ICommand<TResult>
-{
-    Task<TResult> HandleAsync(TCommand command, CancellationToken cancellationToken);
-}
+var builder = WebApplication.CreateBuilder(args);
 
-// Query Handlers
-public interface IQueryHandler<in TQuery, TResult> where TQuery : IQuery<TResult>
-{
-    Task<TResult> HandleAsync(TQuery query, CancellationToken cancellationToken);
-}
+builder.AddServiceDefaults(); // OTel (OTLP only if OTEL_EXPORTER_OTLP_ENDPOINT is set) + /health + resilient HttpClients
 
-// Notification Handlers
-public interface INotificationHandler<in TNotification> where TNotification : INotification
-{
-    Task HandleAsync(TNotification notification, CancellationToken cancellationToken);
-}
-public interface INotificationHandler<in TNotification, TResult> where TNotification : INotification<TResult>
-{
-    Task<TResult> HandleAsync(TNotification notification, CancellationToken cancellationToken);
-}
+builder.Services.AddCqrs(cqrs => cqrs
+    .RegisterHandlersFromAssemblyContaining<Program>()
+    .AddOpenBehavior(typeof(LoggingBehavior<,>))
+    .AddOpenBehavior(typeof(ValidationBehavior<,>)));
+
+builder.Services.AddDbContext<OrdersDbContext>(o => o.UseNpgsql(connString));
+builder.Services.AddUnitOfWork<OrdersDbContext>();
+builder.Services.AddOutbox<OrdersDbContext>();
+
+builder.Services
+    .AddRabbitMqEventBus(builder.Configuration)
+    .AddSubscription<OrderCreatedIntegrationEvent, OrderCreatedHandler>();
+
+builder.Services.AddEndpoints(typeof(Program).Assembly);
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
+var app = builder.Build();
+app.UseExceptionHandler();
+app.MapDefaultEndpoints(); // GET /health (all checks) + GET /alive (live tag)
+app.MapEndpoints();        // all IEndpoint slices
+app.Run();
 ```
 
-### 3.4 Mediator (Sender)
+Endpoint slice pattern — implement `IEndpoint` per feature and return domain
+results mapped to HTTP:
 
 ```csharp
-public interface ISender
+public sealed class CreateOrderEndpoint : IEndpoint
 {
-    Task Send(ICommand request, CancellationToken ct);
-    Task<TResult> Send<TResult>(ICommand<TResult> request, CancellationToken ct);
-    Task Send(INotification request, CancellationToken ct);
-    Task<TResult> Send<TResult>(INotification<TResult> request, CancellationToken ct);
-    Task<TResult> Send<TResult>(IQuery<TResult> request, CancellationToken ct);
-    Task<TResult?> Send<TResult>(object request, CancellationToken ct);
-}
-```
-
-### 3.5 Registration
-
-```csharp
-using OroCQRS.Core.Extensions;
-
-// Scans calling assemblies and registers all handlers as Scoped
-// Also registers ISender -> Sender as Scoped
-builder.Services.AddCqrsHandlers();
-// Or scan specific assemblies:
-builder.Services.AddCqrsHandlers(typeof(MyCommandHandler).Assembly);
-```
-
-### 3.6 Usage Patterns
-
-**Command (void):**
-```csharp
-public record CreateUserCommand(string UserName) : ICommand
-{
-    public Guid CorrelationId() => Guid.NewGuid();
-}
-
-public class CreateUserCommandHandler : ICommandHandler<CreateUserCommand>
-{
-    public async Task HandleAsync(CreateUserCommand command, CancellationToken ct)
-    {
-        // Business logic
-    }
-}
-
-// Dispatch:
-await sender.Send(new CreateUserCommand("oscar"), ct);
-```
-
-**Query (with result):**
-```csharp
-public record GetUserQuery(Guid UserId) : IQuery<User>
-{
-    public Guid CorrelationId() => Guid.NewGuid();
-}
-
-public class GetUserQueryHandler : IQueryHandler<GetUserQuery, User>
-{
-    public async Task<User> HandleAsync(GetUserQuery query, CancellationToken ct)
-    {
-        return await dbContext.Users.FindAsync(query.UserId);
-    }
-}
-
-// Dispatch:
-var user = await sender.Send(new GetUserQuery(userId), ct);
-```
-
-**Notification:**
-```csharp
-public record UserCreatedNotification(string Email) : INotification
-{
-    public Guid CorrelationId() => Guid.NewGuid();
-}
-
-public class SendWelcomeEmailHandler : INotificationHandler<UserCreatedNotification>
-{
-    public async Task HandleAsync(UserCreatedNotification notification, CancellationToken ct)
-    {
-        // Send email
-    }
-}
-
-// Dispatch:
-await sender.Send(new UserCreatedNotification("user@example.com"), ct);
-```
-
-## 4. OroBuildingBlocks — Microservice Infrastructure
-
-### 4.1 OroServiceDefaults (Package: `OroServiceDefaults`)
-
-```csharp
-using OroBuildingBlocks.ServiceDefaults;
-
-// In Program.cs:
-builder.AddServiceDefaults();
-  // Registers: OpenTelemetry (logs, metrics, tracing, OTLP)
-  //            Health checks (/health, /alive)
-  //            Service Discovery
-  //            HTTP client resilience (standard)
-
-app.MapDefaultEndpoints();
-  // Maps GET /health (all checks), GET /alive (live tag)
-  // Only in Development environment
-```
-
-Additional utilities:
-```csharp
-// ClaimsPrincipal extensions
-User.GetUserId()       // reads "sub" claim
-User.GetUserName()     // reads ClaimTypes.Name
-
-// Configuration extensions
-config.GetRequiredValue("Key")  // throws InvalidOperationException if missing
-
-// Data Protection (supports File, Redis, AzureBlob)
-services.AddConfiguredDataProtection(config, env);
-
-// Identity endpoints (OpenIddict)
-app.MapIdentityEndpoints(options => { ... });
-```
-
-### 4.2 OroLoggers (Package: `OroLoggers`)
-
-```csharp
-using OroBuildingBlocks.Loggers;
-
-// Create a Serilog logger with Console + Seq sinks
-var logger = LoggerPrinter.CreateSerilogLogger("AppName", "ServiceName", configuration);
-
-// Or use Aspire integration
-builder.AddServicesWritersLogger(config);
-// Reads ConnectionStrings:Seq for Seq endpoint
-```
-
-### 4.3 OroEventBus (Package: `OroEventBus`)
-
-```csharp
-using OroBuildingBlocks.EventBus.Abstractions;
-using OroBuildingBlocks.EventBus.Events;
-
-// Base event
-public record IntegrationEvent
-{
-    public Guid Id { get; }          // auto-generated
-    public DateTime Created { get; } // auto-generated UtcNow
-}
-
-// Abstraction
-public interface IEventBus
-{
-    Task PublishAsync(IntegrationEvent integrationEvent, CancellationToken ct = default);
-}
-
-// Handler
-public interface IIntegrationEventHandler<in TEvent> where TEvent : IntegrationEvent
-{
-    Task Handle(TEvent integrationEvent);
+    public void MapEndpoint(IEndpointRouteBuilder app) =>
+        app.MapPost("/orders", async (CreateOrderCommand command, ISender sender, CancellationToken ct) =>
+        {
+            var result = await sender.SendAsync(command, ct);
+            return result.ToCreatedResult(id => $"/orders/{id}");
+        });
 }
 ```
 
-### 4.4 OroEventBusRabbitMQ (Package: `OroEventBusRabbitMQ`)
+`ToHttpResult()` → `204 NoContent` / ProblemDetails; `ToHttpResult<T>()` →
+`200 Ok` / ProblemDetails; `ToCreatedResult(...)` → `201 Created` / ProblemDetails
+(`ErrorType` decides the status code). `GlobalExceptionHandler` + `UseExceptionHandler()`
+is the only global error path; do not add custom exception middleware.
 
-```csharp
-using OroBuildingBlocks.EventBusRabbitMQ;
+EventBus configuration (`appsettings.json`):
 
-// Registration (uses Aspire RabbitMQ integration)
-builder.AddRabbitMqEventBus("connectionName")
-       .AddSubscriptionManager<OrderSubmittedEvent, OrderSubmittedHandler>()
-       .ConfigureJsonOptions(opts => { /* custom JSON settings */ });
-
-// Configuration (appsettings.json):
+```json
 {
-  "ConnectionStrings": {
-    "connectionName": "amqp://localhost"
-  },
   "EventBus": {
-    "SubscriptionClientName": "MyServiceQueue",
-    "RetryCount": 5
+    "RabbitMq": {
+      "HostName": "localhost",
+      "UserName": "guest",
+      "Password": "guest",
+      "ExchangeName": "integration_events",
+      "QueueName": "orders-service"
+    }
   }
 }
 ```
 
-## 5. OroKernel — Shared Kernel (Package: `OroKernel.Shared`)
+Each service owns its `QueueName`; publishing goes to the durable topic
+`ExchangeName` with confirms, consuming via a `BackgroundService` with manual
+ack and exponential retries. Delivery is at-least-once: integration handlers
+MUST be idempotent. Local broker: `docker run -d -p 5672:5672 -p 15672:15672 rabbitmq:4-management`.
 
-Requires `OroCQRS` as a dependency (domain events extend INotification).
+## 7. Logger (only when needed)
 
-### 5.1 Base Entities
-
-```csharp
-using OroKernel.Shared.Entities;
-
-// GUID-based entity (uses Guid.CreateVersion7())
-public abstract class BaseEntity : WithDomainEventBase
-{
-    public Guid Id { get; set; }
-}
-
-// Typed ID entity
-public abstract class BaseEntity<TId> : WithDomainEventBase
-    where TId : struct, IEquatable<TId>
-{
-    public TId Id { get; set; }
-}
-
-// Value Object
-public abstract class BaseValueObject : IEquatable<BaseValueObject>
-{
-    protected abstract IEnumerable<object?> GetEquatibilityComponents();
-}
-```
-
-### 5.2 Domain Events
+ServiceDefaults already wires OpenTelemetry logging. Add `BuildingBlocks.Logger`
+only for Serilog sinks (Console/File/Loki/Seq):
 
 ```csharp
-using OroKernel.Shared.Events;
-using OroKernel.Shared.Interfaces;
-
-// Base domain event record (extends INotification from OroCQRS)
-public abstract record DomainEventBase : IDomainEvent
-{
-    public DateTime OcurredOn { get; } = DateTime.UtcNow;
-    public Guid CorrelationId() => Guid.NewGuid();
-}
-
-// Raise from entity
-public class Order : BaseEntity
-{
-    public void Submit()
-    {
-        RaiseDomainEvent(new OrderSubmittedEvent(Id));
-    }
-}
+// Host startup:
+builder.Host.UseBuildingBlocksLogger();
+// Non-host scenarios (tests, libraries):
+services.AddBuildingBlocksLogger(configuration);
 ```
 
-### 5.3 Auditable DbContext
+Options bind from the `LoggerOptions` configuration section, with an optional
+`Action<LoggerOptions>` override.
 
-```csharp
-using OroKernel.Shared.Data;
-using OroKernel.Shared.Interfaces;
+## 8. Checklist + forbidden legacy
 
-public class MyDbContext : AuditableDbContext
-{
-    public MyDbContext(DbContextOptions options, IUserInfoProvider userInfoProvider)
-        : base(options, userInfoProvider) { }
+Starting or reviewing a solution:
 
-    public DbSet<Product> Products => Set<Product>();
-}
-```
+- [ ] Libraries vendored at `<repo>/src/BuildingBlocks/` from `$HOME/Sources/BuildingBlocks`, referenced via relative `ProjectReference`.
+- [ ] No `nuget.config` feed for BuildingBlocks; CPM only for externals/tests with pinned versions.
+- [ ] `AddCqrs` with assembly scan + Logging/Validation behaviors; `SendAsync` only.
+- [ ] Aggregates with `StronglyTypedId`, rules, domain events; handlers return `Result`.
+- [ ] `AppDbContextBase` + `AddUnitOfWork` + `AddOutbox` + `OutboxEntityTypeConfiguration`; handlers stage outbox then single `SaveChangesAsync`.
+- [ ] `AddServiceDefaults` + `AddRabbitMqEventBus(...).AddSubscription` + `AddEndpoints` + `GlobalExceptionHandler` + `MapDefaultEndpoints/MapEndpoints`.
+- [ ] `EventBus:RabbitMq` section present; integration handlers idempotent.
 
-### 5.4 Repository Pattern
+PROHIBITED (legacy `Oro*` world — fail review if found):
 
-```csharp
-using OroKernel.Shared.Interfaces;
+- `https://nuget.pkg.github.com/ojrojas`, `OroCQRS`, `OroKernel.Shared`, `OroServiceDefaults`, `OroEventBus`, `OroEventBusRabbitMQ`, `OroLoggers`.
+- `AddCqrsHandlers()`, `ISender.Send(...)` (non-Async), `BaseEntity`, `AuditableDbContext`.
+- Absolute home paths such as `/home/oroja/...` — always `$HOME/...`.
+- `Version="*"` or versions hardcoded in `.csproj`.
 
-public interface IRepository<T> : IRepositoryBase<T> where T : class, IAggregateRoot
-{
-    Task<T?> GetByIdAsync<TId>(TId id, CancellationToken ct);
-}
-
-public interface IRepositoryBase<T> where T : class, IAggregateRoot
-{
-    Task AddAsync(T entity, CancellationToken ct);
-    Task UpdateAsync(T entity, CancellationToken ct);
-    Task DeleteAsync(T entity, CancellationToken ct);
-    Task<IEnumerable<T>> GetAllAsync(CancellationToken ct);
-    Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct);
-    Task<T?> FindSingleAsync(Expression<Func<T, bool>> predicate, CancellationToken ct);
-}
-```
-
-### 5.5 Identity / User Resolution
-
-```csharp
-using OroKernel.Shared.Options;
-using OroKernel.Shared.Services;
-using OroKernel.Shared.Interfaces;
-
-// Register in DI:
-services.Configure<UserInfo>(opts =>
-{
-    opts.Id = Guid.Empty;
-    opts.UserName = "System";
-    opts.Email = "system@example.com";
-});
-services.AddTransient<IPostConfigureOptions<UserInfo>, ClaimsUserInfoService>();
-services.AddScoped<IUserInfoProvider, DefaultUserInfoProvider>();
-
-// Optional: HttpClient for external identity server
-services.AddTransient<RetryDelegatingHandler>();
-services.AddHttpClient<IIdentityClientService, IdentityClientService>((sp, client) =>
-{
-    client.BaseAddress = new Uri("https://identity.example/");
-    client.Timeout = TimeSpan.FromSeconds(10);
-})
-.AddHttpMessageHandler<RetryDelegatingHandler>();
-```
-
-### 5.6 Specification Pattern
-
-```csharp
-using OroKernel.Shared.Specification;
-
-public class ActiveUsersSpecification : BaseSpecification<User>
-{
-    public override Expression<Func<User, bool>> ToExpression()
-        => user => user.IsActive;
-}
-
-// Combinators
-var spec = new ActiveUsersSpecification()
-    .And(new UsersFromCountrySpecification("CO"))
-    .Or(new VIPUsersSpecification());
-```
-
-### 5.7 Domain Exceptions
-
-```csharp
-using OroKernel.Shared.Exceptions;
-
-throw new DomainException("ORDER_INVALID", "Order cannot be processed");
-```
-
-## 6. CPM Enforcement for Test Projects
-
-Test projects MUST also use CPM. Add test package versions to the central
-`Directory.Packages.props`:
-
-```xml
-<ItemGroup>
-  <!-- Test packages -->
-  <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
-  <PackageVersion Include="xunit" Version="2.9.3" />
-  <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-  <PackageVersion Include="Moq" Version="4.20.72" />
-  <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.7" />
-  <PackageVersion Include="coverlet.collector" Version="10.0.0" />
-</ItemGroup>
-```
-
-Test .csproj files then only contain:
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <IsPackable>false</IsPackable>
-    <IsTestProject>true</IsTestProject>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="Moq" />
-    <PackageReference Include="coverlet.collector" />
-  </ItemGroup>
-</Project>
-```
-
-## 7. Complete Project Setup Checklist
-
-When starting a new .NET Core solution:
-
-- [ ] Create `nuget.config` with GitHub Packages source + credentials
-- [ ] Create `Directory.Packages.props` with `ManagePackageVersionsCentrally`
-- [ ] Add Oro package versions and test package versions to CPM
-- [ ] Create `Directory.Build.props` with shared settings
-- [ ] Reference Oro packages WITHOUT versions in .csproj
-- [ ] Register OroCQRS handlers via `builder.Services.AddCqrsHandlers()`
-- [ ] Add OroBuildingBlocks defaults via `builder.AddServiceDefaults()` and `app.MapDefaultEndpoints()`
-- [ ] Configure AuditableDbContext with IUserInfoProvider for auditing
+Migration note for old repos: delete the GitHub Packages `nuget.config` source
+and the `Oro*` `PackageVersion`/`PackageReference` entries, vendor the sources
+per §1, then apply §3-§7 replacing namespaces (`OroCQRS.Core.*` →
+`BuildingBlocks.CQRS.*`, `OroKernel.Shared.*` → `BuildingBlocks.Kernel.*`,
+`OroBuildingBlocks.*` → `BuildingBlocks.*`) and the registration sequence in §6.
