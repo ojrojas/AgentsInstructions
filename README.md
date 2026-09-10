@@ -79,6 +79,20 @@ Load an agent in Claude Code with:
 
 Available agents: `coder`, `designer`, `documenter`, `orchestrator`, `planner`, `tester`.
 
+### Artifacts (`draft/`)
+
+The orchestrator persists all execution artifacts under a dated, type-separated tree:
+
+```
+draft/{YYYYMMDD}/
+├── plans/00-{plan-slug}/   # PLAN.md, TASKS.md (blocking checklist), docs/, adrs/
+├── tasks/{NN}-{slug}/      # NOTES.md, TEST-REPORT.md, DOC-REPORT.md
+└── notes/                  # cross-cutting notes
+```
+
+`TASKS.md` gates execution task-by-task: a task's checks must all be marked before the
+next task starts. See `.claude/agents/orchestrator.md`.
+
 ### Skills
 
 Invoke a skill directly with:

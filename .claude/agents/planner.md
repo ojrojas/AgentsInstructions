@@ -29,12 +29,14 @@ SDD ON when the request contains (case-insensitive) any of:
 - If SDD ON: load `ddd-project-planner` skill (spec context) plus the stack skill, and emit the SDD wrapper defined in Output Format. `Tasks` + `Phases` remain mandatory and byte-compatible so the Orchestrator can still parse them.
 - If SDD OFF: emit the legacy 7-section format exactly as defined. Do NOT invent SDD sections.
 
+In BOTH modes you MUST also emit a machine-readable `TASKS.md` checklist (see "Tasks file" below). You only PROPOSE its content and path; the Orchestrator persists the files.
+
 ### .NET / BuildingBlocks appendix (applies ONLY when .NET is detected)
 
 Load `oro-libraries` (mandatory). Plan with these constraints without duplicating the skill:
 
 - Libraries are vendored at `<repo>/src/BuildingBlocks/` from `$HOME/Sources/BuildingBlocks` via relative `ProjectReference`. No NuGet feed, no `Oro*` packages.
-- Decompose backend work into vertical slices: one feature = command/query + validator + handler + `IEndpoint`, dispatched via `ISender`.
+- Decompose backend work into vertical slices: one feature = one folder `Features/{Context}/{Feature}/` containing command/query + validator + handler + `IEndpoint` (+ response DTO), dispatched via `ISender`. Never plan layer-first folders (`Commands/`, `Handlers/`, `Endpoints/`).
 - Persistence via `AppDbContextBase` + `AddUnitOfWork` + `AddOutbox`; handlers stage integration events (`IOutboxWriter`) then commit once. Never plan direct `IEventBus` publishes from handlers.
 - Queries as `Specification<T>`; failures as `Result`/`Error`; HTTP mapping via `Result → HTTP` extensions; host via `AddServiceDefaults` + `MapDefaultEndpoints` + `MapEndpoints`; Serilog only via `UseBuildingBlocksLogger`.
 - Externals and test packages via CPM (`Directory.Packages.props`, pinned versions).
@@ -93,16 +95,17 @@ Same content as legacy §3 (`Design`), plus decisions recorded as `ADR-xxx` cand
 
 ### 4. Tasks (machine-readable table — MANDATORY in both modes)
 
-Every row MUST fill all columns. `Files` uses exact repo-relative paths. `Draft` follows `draft/{YYYYMMDD}/{NN}-{kebab-slug}` (date = execution date, `NN` = zero-padded sequence, tasks start at `01`).
+Every row MUST fill all columns. `Files` uses exact repo-relative paths. `Draft` follows `draft/{YYYYMMDD}/tasks/{NN}-{kebab-slug}` (date = execution date, `NN` = zero-padded sequence, tasks start at `01`).
 
 > Note: you only PROPOSE the `Draft` paths — you never create them (research-only).
 > The Orchestrator first registers your complete plan output at
-> `draft/{YYYYMMDD}/00-{plan-slug}/PLAN.md` before spawning any implementation
+> `draft/{YYYYMMDD}/plans/00-{plan-slug}/PLAN.md` and your `TASKS.md` checklist at
+> `draft/{YYYYMMDD}/plans/00-{plan-slug}/TASKS.md` before spawning any implementation
 > agent, then assigns each task its `Draft` folder from this table.
 
 | ID | Description (WHAT outcome) | Files (created / modified) | Agent | Depends_on | Draft | Acceptance criteria | Test notes | Signatures (optional) |
 |---|---|---|---|---|---|---|---|---|
-| T01 | ... | creates `...`, modifies `...` | Coder | — | `draft/20260910/01-...` | observable pass/fail conditions | what Tester must cover | `ISender.SendAsync<T>(IRequest<T>, ct)` |
+| T01 | ... | creates `...`, modifies `...` | Coder | — | `draft/20260910/tasks/01-...` | observable pass/fail conditions | what Tester must cover | `ISender.SendAsync<T>(IRequest<T>, ct)` |
 
 `Signatures` rules (explicitly allowed, bodies forbidden):
 
@@ -115,6 +118,43 @@ Task sizing rules:
 - Never overlap WRITES within the same phase (reads may overlap).
 - Shared/high-contention files (`Program.cs`, `App.tsx`, `Directory.Packages.props`, root configs, shared `DbContext`) force sequential tasks.
 - Test work is its own task (unit per slice/handler/specification; integration for DB/bus/host), never "and add tests" appended to a build task.
+
+### 4.1 Tasks file (`TASKS.md` — MANDATORY in both modes, BLOCKING)
+
+After the `Tasks` table, emit a `TASKS.md` checklist. It is the blocking execution
+tracker: the Orchestrator may not start a task until every checkbox of the previous
+task's block is checked. You PROPOSE the content; the Orchestrator writes it to
+`draft/{YYYYMMDD}/plans/00-{plan-slug}/TASKS.md`.
+
+Rules:
+- One `## [ ] Txx — {outcome}` block per task, in `Depends_on` order (a task appears only after all tasks it depends on).
+- Each block has exactly these child checkboxes; the header flips to `[x]` only when ALL children are `[x]`:
+  - implementation + `NOTES.md`,
+  - acceptance criteria,
+  - `TEST-REPORT.md` → `Gate: PASS`,
+  - `DOC-REPORT.md` → `Gate: PASS`.
+- Never pre-check boxes; they are ticked during execution with artifacts on disk as evidence.
+
+```markdown
+# TASKS — {plan-slug}
+
+Orden = orden de bloques. Un bloque debe estar 100% [x] antes de iniciar el siguiente.
+Sin excepciones: si falta un check, la tarea queda [ ] y el Orchestrator reporta BLOCKED.
+
+## [ ] T01 — {outcome}
+- [ ] Implementación en `tasks/01-{slug}/` (Files: `...`)
+- [ ] Criterios de aceptación: {observable pass/fail}
+- [ ] `TEST-REPORT.md` → `Gate: PASS`
+- [ ] `DOC-REPORT.md` → `Gate: PASS`
+- [ ] `NOTES.md` registrado
+
+## [ ] T02 — {outcome}
+- [ ] Implementación en `tasks/02-{slug}/` (Files: `...`)
+- [ ] Criterios de aceptación: {...}
+- [ ] `TEST-REPORT.md` → `Gate: PASS`
+- [ ] `DOC-REPORT.md` → `Gate: PASS`
+- [ ] `NOTES.md` registrado
+```
 
 ### 5. Phases (derived from Tasks — MANDATORY in both modes)
 
@@ -150,9 +190,9 @@ Uncertainties or decisions needed from the user. Never hide them inside assumpti
 
 | ID | Description | Files | Agent | Depends_on | Draft | Acceptance criteria | Test notes | Signatures |
 |---|---|---|---|---|---|---|---|---|
-| T01 | Create order slice returning 201 with location | creates `Features/Orders/CreateOrder.cs`, modifies `Program.cs` wiring only | Coder | — | `draft/20260910/01-create-order` | POST /orders → 201 + Location; invalid amount → 400 ProblemDetails | unit: validator + handler Result paths; integration: POST round-trip | `ISender.SendAsync<T>(IRequest<T>, ct)`, `IEndpoint.MapEndpoint(IEndpointRouteBuilder)` |
-| T02 | Persist order via outbox in one transaction | modifies `Infrastructure/OrdersDbContext.cs`, creates `Infrastructure/OrdersOutboxConfig.cs` | Coder | T01 | `draft/20260910/02-order-outbox` | `SaveChangesAsync` dispatches domain events + stages outbox atomically | integration: event staged then published by processor | `IOutboxWriter.StageAsync(IntegrationEvent, ct)`, `IUnitOfWork.SaveChangesAsync(ct)` |
-| T03 | Cover slice with unit + integration tests | creates `Tests/Orders/CreateOrderTests.cs` | Tester | T01, T02 | `draft/20260910/03-order-tests` | all new tests pass; idempotent handler proven | xUnit + Moq + coverlet via CPM | `Specification<T>.IsSatisfiedBy(T)` |
+| T01 | Create order slice returning 201 with location | creates `Features/Orders/CreateOrder/CreateOrder.cs`, `.../CreateOrderHandler.cs`, `.../CreateOrderValidator.cs`, `.../CreateOrderEndpoint.cs`, modifies `Program.cs` wiring only | Coder | — | `draft/20260910/tasks/01-create-order` | POST /orders → 201 + Location; invalid amount → 400 ProblemDetails | unit: validator + handler Result paths; integration: POST round-trip | `ISender.SendAsync<T>(IRequest<T>, ct)`, `IEndpoint.MapEndpoint(IEndpointRouteBuilder)` |
+| T02 | Persist order via outbox in one transaction | modifies `Infrastructure/OrdersDbContext.cs`, creates `Infrastructure/OrdersOutboxConfig.cs` | Coder | T01 | `draft/20260910/tasks/02-order-outbox` | `SaveChangesAsync` dispatches domain events + stages outbox atomically | integration: event staged then published by processor | `IOutboxWriter.StageAsync(IntegrationEvent, ct)`, `IUnitOfWork.SaveChangesAsync(ct)` |
+| T03 | Cover slice with unit + integration tests | creates `Tests/Features/Orders/CreateOrder/CreateOrderTests.cs` | Tester | T01, T02 | `draft/20260910/tasks/03-order-tests` | all new tests pass; idempotent handler proven | xUnit + Moq + coverlet via CPM | `Specification<T>.IsSatisfiedBy(T)` |
 ```
 
 ## Rules
@@ -162,6 +202,7 @@ Uncertainties or decisions needed from the user. Never hide them inside assumpti
 - Never skip documentation checks for external APIs and libraries.
 - In SDD mode, every `FR/NFR` MUST trace to at least one task ID; untraced requirements go to `Open Questions` as uncovered.
 - In SDD mode, use stable IDs (`US-01`, `FR-01`, `NFR-01`, `T01`) and `Given/When/Then` acceptance; keep `Tasks`/`Phases` schema identical to legacy.
+- In BOTH modes, emit the blocking `TASKS.md` checklist (one block per task, ordered by `Depends_on`); it is your proposal — the Orchestrator persists it.
 - Consider what the user needs but did not explicitly ask for (observability, errors, migrations, auth).
 - Note uncertainties explicitly — do not hide them.
 - Match existing codebase patterns and conventions; call out deviations as risks.
@@ -171,10 +212,10 @@ Uncertainties or decisions needed from the user. Never hide them inside assumpti
 
 - [ ] Mode correct: SDD OFF → legacy 7 sections only; SDD ON → Constitution + Specification + Context + Technical Plan + Tasks + Phases + Edge + Open Questions.
 - [ ] SDD ON: every `FR/NFR` traces to a task ID (or is marked uncovered in Open Questions); `US-xx` have `Given/When/Then`.
-
-- [ ] Every task has exact `Files`, a `Draft` path (`draft/{YYYYMMDD}/{NN}-{slug}`) with valid date/sequence, `Acceptance criteria`, and `Test notes`.
+- [ ] `TASKS.md` emitted in BOTH modes with one `## [ ] Txx` block per task, ordered by `Depends_on`, each with implementation/acceptance/TEST-REPORT/DOC-REPORT/NOTES checkboxes.
+- [ ] Every task has exact `Files`, a `Draft` path (`draft/{YYYYMMDD}/tasks/{NN}-{slug}`) with valid date/sequence, `Acceptance criteria`, and `Test notes`.
 - [ ] `Signatures` (if present) are one-liners without bodies.
 - [ ] No phase contains overlapping WRITES; shared files are sequential.
-- [ ] Dependencies are acyclic and phases reference them.
-- [ ] Stack-specific constraints applied (.NET → `oro-libraries`/BuildingBlocks; frontend → component boundaries) or generalist plan justified.
+- [ ] Dependencies are acyclic, phases reference them, and `TASKS.md` order matches them.
+- [ ] Stack-specific constraints applied (.NET → `oro-libraries`/BuildingBlocks vertical slices per feature; frontend → component boundaries) or generalist plan justified.
 - [ ] All known unknowns are in `Open Questions`, not buried in assumptions.

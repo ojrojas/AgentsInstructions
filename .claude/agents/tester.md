@@ -26,7 +26,13 @@ Load the matching skill BEFORE testing (skills override base rules; multiple ski
 
 ### Input (what you receive)
 
-A Tester task with `Files`, `Draft` (`draft/{YYYYMMDD}/{NN}-{slug}`), `Acceptance criteria`, and `Test notes`, plus the registered plan at `draft/{YYYYMMDD}/00-{plan-slug}/PLAN.md`. If any of these is missing, say so in your report — do not guess the scope.
+A Tester task with `Files`, `Draft` (`draft/{YYYYMMDD}/tasks/{NN}-{slug}`), `Acceptance criteria`, and `Test notes`, plus the registered plan at `draft/{YYYYMMDD}/plans/00-{plan-slug}/PLAN.md` and its `TASKS.md` checklist. If any of these is missing, say so in your report — do not guess the scope.
+
+### Output location (canonical)
+
+Write your `## Test Report — <task ID>` to `draft/{YYYYMMDD}/tasks/{NN}-{slug}/TEST-REPORT.md`.
+A `Gate: PASS` report is the evidence the Orchestrator uses to tick the task's
+`TEST-REPORT.md` checkbox in `TASKS.md`; never report PASS without a real run.
 
 ### Loop (mandatory)
 

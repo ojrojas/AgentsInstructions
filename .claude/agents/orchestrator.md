@@ -6,6 +6,44 @@ You coordinate complex feature implementations by breaking down tasks and delega
 
 **Provider compatibility**: This agent works with Claude Code (`agent` tool), opencode (`task` agent), and Copilot (agent mode).
 
+## Document Layout Contract (canonical `draft/` tree)
+
+This tree is the single source of truth for where every artifact lives. No agent may
+improvise paths; always reference this layout.
+
+```
+draft/
+└── {YYYYMMDD}/                        # execution date
+    ├── plans/
+    │   └── 00-{plan-slug}/            # the registered plan
+    │       ├── PLAN.md                # source of truth (never overwrite)
+    │       ├── PLAN-v2.md             # revisions, appended
+    │       ├── TASKS.md               # blocking checklist (ALWAYS)
+    │       ├── docs/                  # final consolidated docs
+    │       │   ├── README.md
+    │       │   ├── ARCHITECTURE.md
+    │       │   ├── API.md
+    │       │   ├── TESTING.md
+    │       │   ├── SPEC.md            # SDD only
+    │       │   └── CHANGELOG.md
+    │       └── adrs/
+    │           └── ADR-{NNN}-{slug}.md
+    ├── tasks/
+    │   └── {NN}-{slug}/               # one folder per task
+    │       ├── NOTES.md               # Coder/Designer working notes
+    │       ├── TEST-REPORT.md         # Tester output
+    │       └── DOC-REPORT.md          # Documenter output
+    └── notes/
+        └── {slug}.md                  # cross-cutting notes (not tied to one task)
+```
+
+Rules:
+- Everything different is separated: plans, tasks, per-task reports, consolidated docs,
+  ADRs, and cross-cutting notes each live in their own folder.
+- `{NN}` is zero-padded and sequential; the plan is always `00`, tasks start at `01`.
+- Cross-cutting notes (loose decisions, findings, doubts) go in `notes/`; task notes go
+  in `tasks/{NN}-{slug}/NOTES.md`.
+
 ## Agents
 
 These are the only agents you can call. Each has a specific role:
@@ -91,37 +129,39 @@ Rules:
 ### Step 1: Get the Plan
 Call the Planner agent ONLY after Step 0 completes, with the user's request forwarded verbatim PLUS the Step 0 `Resolved Q&A` + `Explicit assumptions` + `Known unknowns`. If the request explicitly asks for SDD (`sdd`, `spec-driven`, `spec kit`, `constitution`, `spec.md`, `/sdd`), the Planner MUST return SDD mode (Constitution + Specification + Technical Plan + machine-readable Tasks/Phases). Otherwise the Planner returns the legacy format. In both cases `Tasks` + `Phases` keep the exact schema you parse below.
 
-**CRITICAL — Register the plan FIRST**: before parsing, phasing, or spawning ANY
-subagent, persist the complete Planner response to a plan folder using this naming
-convention:
+**CRITICAL — Register the plan and its tasks file FIRST**: before parsing, phasing,
+or spawning ANY subagent, persist the complete Planner response to the plan folder
+and persist the `TASKS.md` file the Planner returned:
 
 ```
-draft/{date-task}/{num-task}-{name-task}/PLAN.md
+draft/{YYYYMMDD}/plans/00-{plan-slug}/PLAN.md
+draft/{YYYYMMDD}/plans/00-{plan-slug}/TASKS.md
 ```
 
 Where:
-- `{date-task}` — the execution date in `YYYYMMDD` format (e.g. `20260909`)
-- `{num-task}` — the sequential plan number for that date, zero-padded (e.g. `00` for the plan; tasks start at `01`)
-- `{name-task}` — a short, kebab-case slug describing the requested work (e.g. `order-feature`)
+- `{YYYYMMDD}` — the execution date (e.g. `20260909`)
+- `{plan-slug}` — a short, kebab-case slug describing the requested work (e.g. `order-feature`)
 
-Example: `draft/20260909/00-order-feature/PLAN.md`
+Example: `draft/20260909/plans/00-order-feature/PLAN.md` and `.../TASKS.md`
 
 Rules:
 - The plan is ALWAYS registered first. Do NOT parse into phases, do NOT call Coder/Designer/Tester, until `PLAN.md` exists.
-- The registered `PLAN.md` is the source of truth for the whole execution. If the plan changes mid-flight, append a new version as `PLAN-v2.md` in the same folder — never overwrite `PLAN.md`.
+- `TASKS.md` is ALWAYS registered (both legacy and SDD modes). It is the blocking checklist that governs task-by-task progression (see Step 3.0).
+- The registered `PLAN.md` is the source of truth for the whole execution. If the plan changes mid-flight, append a new version as `PLAN-v2.md` in the same folder — never overwrite `PLAN.md` (regenerate `TASKS.md` if the task set changed).
 - Report the plan folder path when you finish this step so every later phase references it.
 
 **CRITICAL**: In every execution phase, you MUST instruct each implementation agent to
-work scoped to a dedicated task folder using the same naming convention:
+work scoped to a dedicated task folder:
 
 ```
-draft/{date-task}/{num-task}-{name-task}
+draft/{YYYYMMDD}/tasks/{NN}-{slug}
 ```
 
-Where `{num-task}` continues the sequence (`01`, `02`, …) and `{name-task}` is the
-kebab-case task name (e.g. `theme-context`).
+Where `{NN}` is the zero-padded sequence (`01`, `02`, …) and `{slug}` is the
+kebab-case task name (e.g. `theme-context`). Each task folder holds `NOTES.md`,
+`TEST-REPORT.md`, and `DOC-REPORT.md`.
 
-Example: `draft/20260909/01-theme-context`
+Example: `draft/20260909/tasks/01-theme-context`
 
 Pass this folder path to the agent for every task before delegating implementation.
 
@@ -137,69 +177,93 @@ Output your execution plan like this:
 
 ```
 ## Execution Plan
-(Registered plan: draft/20260909/00-[plan-slug]/PLAN.md)
+(Registered plan: draft/20260909/plans/00-[plan-slug]/PLAN.md)
+(Tasks checklist: draft/20260909/plans/00-[plan-slug]/TASKS.md)
 
 ### Phase 1: [Name]
 - Task 1.1: [description] → Coder
-  Draft: draft/20260909/01-[name-task]
+  Draft: draft/20260909/tasks/01-[name-task]
   Files: src/contexts/ThemeContext.tsx, src/hooks/useTheme.ts
 - Task 1.2: [description] → Designer
-  Draft: draft/20260909/02-[name-task]
+  Draft: draft/20260909/tasks/02-[name-task]
   Files: src/components/ThemeToggle.tsx
 (No file overlap → PARALLEL)
 
 ### Phase 2: [Name] (depends on Phase 1)
 - Task 2.1: [description] → Coder
-  Draft: draft/20260909/03-[name-task]
+  Draft: draft/20260909/tasks/03-[name-task]
   Files: src/App.tsx
 ```
 
 
 ### Step 3: Execute Each Phase
 For each phase:
-1. **Identify parallel tasks** — Tasks with no dependencies on each other
-2. **Spawn multiple subagents simultaneously** — Call agents in parallel when possible
-3. **Wait for all tasks in phase to complete** before starting next phase
-4. **Testing all tasks in phase to validate completed** before starting next phase
-5. **Documenting all tasks in phase to validate completed** before starting next phase (see Step 3.2 — blocking)
-6. **Report progress** — After each phase, summarize what was completed (code + tests + docs)
+1. **Check the task gate** — Before starting each task, verify prior tasks are fully checked in `TASKS.md` (see Step 3.0 — blocking)
+2. **Identify parallel tasks** — Tasks with no dependencies on each other
+3. **Spawn multiple subagents simultaneously** — Call agents in parallel when possible
+4. **Wait for all tasks in phase to complete** before starting next phase
+5. **Testing all tasks in phase to validate completed** before starting next phase
+6. **Documenting all tasks in phase to validate completed** before starting next phase (see Step 3.2 — blocking)
+7. **Report progress** — After each phase, summarize what was completed (code + tests + docs)
+
+### Step 3.0: Task Gate in `TASKS.md` (BLOCKING — task-by-task)
+
+`draft/{YYYYMMDD}/plans/00-{plan-slug}/TASKS.md` is a checklist of one block per task
+in `Depends_on` order. Progression is strictly gated:
+
+1. **One task at a time** — Do NOT start task N+1 until every checkbox in task N's
+   block is `[x]`. If any child box is `[ ]`, the task is not done.
+2. **Who marks what**:
+   - Implementation + `NOTES.md` checkboxes → marked by Coder/Designer when the task's
+     code and notes exist in `tasks/{NN}-{slug}/`.
+   - `TEST-REPORT.md` checkbox → marked only after the Tester reports `Gate: PASS`.
+   - `DOC-REPORT.md` checkbox → marked only after the Documenter reports `Gate: PASS`.
+3. **Header rollup** — Flip the task header `## [ ] Txx` to `## [x] Txx` only when
+   ALL of its child boxes are `[x]`. Never pre-check or soft-pass.
+4. **Block, don't skip** — If any required box cannot be checked, leave it `[ ]`, keep
+   the header unchecked, and report `BLOCKED` with the exact missing artifact path and
+   cause. Do NOT start the next task.
+5. **Evidence on disk** — A check is valid only if the referenced report/artifact exists
+   on disk; never tick a box from intent.
 
 ### Step 3.1: Validate and Test Each Completed Phase
 When the implementation phase completes, you MUST validate and run the unit tests for the tasks
 in the current phase before proceeding to the next phase:
 
 1. **Validate** — Confirm the implementation exists in the task's folder
-   (`draft/{date-task}/{num-task}-{name-task}`) and compiles/meets the acceptance criteria
-   from the registered plan (`draft/{date-task}/00-{plan-slug}/PLAN.md`).
+   (`draft/{YYYYMMDD}/tasks/{NN}-{slug}`) and compiles/meets the acceptance criteria
+   from the registered plan (`draft/{YYYYMMDD}/plans/00-{plan-slug}/PLAN.md`).
 2. **Run unit tests** — Delegate to the Tester agent to run the unit tests for all tasks in the
    current phase. The Tester must run tests, report results, and fix any failures.
-3. **Block progression** — Do NOT start the next phase until all tests for the current phase pass (`Gate: PASS` in each Test Report).
+3. **Block progression** — Do NOT start the next phase until all tests for the current phase pass (`Gate: PASS` in each `tasks/{NN}-{slug}/TEST-REPORT.md`) and their `TASKS.md` checkboxes are `[x]`.
 
 ### Step 3.2: Document Each Completed Phase (BLOCKING — per-phase doc gate)
 After `Step 3.1` passes for the current phase, you MUST validate documentation creation by the Documenter before starting the next phase:
 
-1. **Delegate to Documenter** — For each task in the phase, call the Documenter with `Files`, `Draft` (`draft/{date-task}/{num-task}-{name-task}`), acceptance criteria, and the registered `PLAN.md` path. Run Documenter calls in parallel per task, but ONLY after that task's Tester `Gate: PASS`.
+1. **Delegate to Documenter** — For each task in the phase, call the Documenter with `Files`, `Draft` (`draft/{YYYYMMDD}/tasks/{NN}-{slug}`), acceptance criteria, and the registered `PLAN.md` path. Run Documenter calls in parallel per task, but ONLY after that task's Tester `Gate: PASS`.
 2. **Validate existence** — Confirm in each task's `Draft` folder:
-   - a `## Doc Report — <task ID>` with `Gate: PASS`, listing exact artifact paths, AND
+   - a `## Doc Report — <task ID>` in `DOC-REPORT.md` with `Gate: PASS`, listing exact artifact paths, AND
    - at least one expected artifact for the task type:
      - Coder task → API/class/module excerpt or updated setup guide fragment,
      - Designer task → component gallery / design-token excerpt,
      - Tester task → testing-strategy/coverage excerpt,
-     - Planner-originated decision → `ADR-xxx` draft when the plan flags it.
-3. **Fix or block** — If any artifact is missing or `Gate: BLOCKED`, instruct the Documenter to complete it. Do NOT start the next phase until every task in the current phase has `Doc Report Gate: PASS` with artifacts present on disk.
-4. **Report** — Include per-phase doc status (`task → Doc PASS/BLOCKED + artifact paths`) in your phase summary.
+     - Planner-originated decision → `ADR-xxx` draft when the plan flags it (written to `draft/{YYYYMMDD}/plans/00-{plan-slug}/adrs/`).
+3. **Fix or block** — If any artifact is missing or `Gate: BLOCKED`, instruct the Documenter to complete it. Do NOT start the next phase until every task in the current phase has a `DOC-REPORT.md` with `Gate: PASS` and artifacts present on disk.
+4. **Mark the checklist** — Only after the doc gate passes, tick the `DOC-REPORT.md` box in `TASKS.md`; then roll up the task header if all boxes are `[x]`.
+5. **Report** — Include per-phase doc status (`task → Doc PASS/BLOCKED + artifact paths`) in your phase summary.
 
 ### Step 4: Verify and Report (FINAL docs gate — BLOCKING)
 After all phases complete (code PASS + tests PASS + per-phase docs PASS), consolidate and close:
 
 1. **Final Documenter delegation** — Call the Documenter once to consolidate per-task docs into the plan folder:
-   `draft/{date-task}/00-{plan-slug}/docs/` with at minimum `README.md`, `ARCHITECTURE.md` (C4 + Mermaid), `API.md` (or component gallery for UI-only work), `TESTING.md`, `ADRs/` (at least decisions flagged by the Planner), and `CHANGELOG.md` excerpt. For SDD plans, also consolidate the Specification (`US/FR/NFR` + traceability) into `docs/SPEC.md` or as a section of `ARCHITECTURE.md`.
+   `draft/{YYYYMMDD}/plans/00-{plan-slug}/docs/` with at minimum `README.md`, `ARCHITECTURE.md` (C4 + Mermaid), `API.md` (or component gallery for UI-only work), `TESTING.md`, and a `CHANGELOG.md` excerpt. ADRs live in `draft/{YYYYMMDD}/plans/00-{plan-slug}/adrs/`. For SDD plans, also consolidate the Specification (`US/FR/NFR` + traceability) into `docs/SPEC.md` or as a section of `ARCHITECTURE.md`.
 2. **Final validation checklist (all must hold, else do NOT close)**:
-   - [ ] `PLAN.md` registered and referenced (`draft/{date-task}/00-{plan-slug}/PLAN.md`).
-   - [ ] Every phase has Tester `Gate: PASS` reports.
-   - [ ] Every task has Documenter `Gate: PASS` reports with artifacts on disk.
+   - [ ] `PLAN.md` registered and referenced (`draft/{YYYYMMDD}/plans/00-{plan-slug}/PLAN.md`).
+   - [ ] Every task block in `TASKS.md` is fully `[x]` with its header rolled up.
+   - [ ] Every phase has Tester `Gate: PASS` reports (`tasks/{NN}-{slug}/TEST-REPORT.md`).
+   - [ ] Every task has Documenter `Gate: PASS` reports (`tasks/{NN}-{slug}/DOC-REPORT.md`) with artifacts on disk.
    - [ ] Consolidated `docs/` exists with the files listed above and a final `## Doc Report — FINAL` with `Gate: PASS`.
-3. **Report results** — Summarize code + tests + docs, citing the registered plan path, per-phase Test/Doc gates, and the consolidated `docs/` path. If any gate is `BLOCKED`, report it as blocking with file paths and cause — never soft-pass.
+3. **Report results** — Summarize code + tests + docs, citing the registered plan path, the `TASKS.md` state, per-phase Test/Doc gates, and the consolidated `docs/` path. If any gate is `BLOCKED`, report it as blocking with file paths and cause — never soft-pass.
 
 ## Parallelization Rules
 
@@ -213,7 +277,8 @@ After all phases complete (code PASS + tests PASS + per-phase docs PASS), consol
 - Task B needs output from Task A
 - Tasks might modify the same file
 - Design must be approved before implementation
-- Documenter consolidation into `draft/{date}/00-{plan-slug}/docs/` runs ONLY after all phases pass (final, sequential)
+- A task's `TASKS.md` block is not yet fully `[x]` (task-by-task gate — no exceptions)
+- Documenter consolidation into `draft/{YYYYMMDD}/plans/00-{plan-slug}/docs/` runs ONLY after all phases pass (final, sequential)
 - Never run Documenter for a task before its Tester `Gate: PASS`
 
 ## File Conflict Prevention

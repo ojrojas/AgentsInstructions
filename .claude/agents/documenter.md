@@ -139,7 +139,15 @@ For each test suite:
 
 ### Input (what you receive)
 
-A Documenter task with `Files`, `Draft` (`draft/{YYYYMMDD}/{NN}-{slug}`), acceptance criteria, and the registered plan at `draft/{YYYYMMDD}/00-{plan-slug}/PLAN.md`. For SDD plans you also receive `US/FR/NFR` IDs to keep traceability (`FR → artifact`). If any of these is missing, say so in your report — do not guess the scope.
+A Documenter task with `Files`, `Draft` (`draft/{YYYYMMDD}/tasks/{NN}-{slug}`), acceptance criteria, and the registered plan at `draft/{YYYYMMDD}/plans/00-{plan-slug}/PLAN.md` plus its `TASKS.md` checklist. For SDD plans you also receive `US/FR/NFR` IDs to keep traceability (`FR → artifact`). If any of these is missing, say so in your report — do not guess the scope.
+
+### Output location (canonical)
+
+Write your per-task `## Doc Report — <task ID>` to
+`draft/{YYYYMMDD}/tasks/{NN}-{slug}/DOC-REPORT.md`. A `Gate: PASS` report is the
+evidence the Orchestrator uses to tick the task's `DOC-REPORT.md` checkbox in
+`TASKS.md`. ADRs are written to `draft/{YYYYMMDD}/plans/00-{plan-slug}/adrs/`, and the
+final consolidation to `draft/{YYYYMMDD}/plans/00-{plan-slug}/docs/`.
 
 ### Loop (mandatory)
 
@@ -152,18 +160,18 @@ Per-task (after each Tester `PASS`):
 ```markdown
 ## Doc Report — <task ID>
 - Scope: <what was documented, source files>
-- Artifacts: <exact repo-relative paths created/updated, e.g. `draft/20260910/01-x/docs/API.md`, `draft/20260910/01-x/ADR-001.md`>
+- Artifacts: <exact repo-relative paths created/updated, e.g. `draft/20260910/tasks/01-x/DOC-REPORT.md`, `draft/20260910/plans/00-{slug}/adrs/ADR-001.md`>
 - Format check: Markdown OK | FAIL; Mermaid OK | N/A | FAIL
 - Traceability: <FR/US IDs covered, or "N/A (legacy plan)">
 - Gate: PASS | BLOCKED
 ```
 
-Final consolidation (in `draft/{YYYYMMDD}/00-{plan-slug}/docs/`):
+Final consolidation (in `draft/{YYYYMMDD}/plans/00-{plan-slug}/docs/`):
 
 ```markdown
 ## Doc Report — FINAL
 - Scope: <consolidated docs for the whole plan>
-- Artifacts: <exact paths: `README.md`, `ARCHITECTURE.md`, `API.md`, `TESTING.md`, `ADRs/`, `CHANGELOG.md` excerpt, plus `SPEC.md` when the plan is SDD>
+- Artifacts: <exact paths: `README.md`, `ARCHITECTURE.md`, `API.md`, `TESTING.md`, `CHANGELOG.md` excerpt, plus `SPEC.md` when the plan is SDD; ADRs referenced from `../adrs/`>
 - Format check: Markdown OK | FAIL; Mermaid OK | FAIL
 - Gate: PASS | BLOCKED
 ```
@@ -178,7 +186,7 @@ Final consolidation (in `draft/{YYYYMMDD}/00-{plan-slug}/docs/`):
 - Coder task → API/class/module excerpt or setup-guide fragment.
 - Designer task → component gallery / design-token excerpt.
 - Tester task → testing-strategy/coverage excerpt linked to the Test Report.
-- Planner-flagged decision → `ADR-{NNN}` draft using the ADR template in this file.
+- Planner-flagged decision → `ADR-{NNN}` draft in `draft/{YYYYMMDD}/plans/00-{plan-slug}/adrs/` using the ADR template in this file.
 
 ## Mandatory Behavior
 
@@ -194,7 +202,7 @@ When generating documentation, load relevant skills from these categories based 
 
 ## Self-check (run before returning the report)
 
-- [ ] Report written to the task's `Draft` folder (or plan `docs/` for FINAL) in the fixed format with real paths?
+- [ ] Report written to the canonical location (`tasks/{NN}-{slug}/DOC-REPORT.md`, or plan `docs/` for FINAL) in the fixed format with real paths?
 - [ ] Every expected artifact exists on disk and is listed with its exact path?
 - [ ] Markdown + Mermaid verified (or Mermaid marked N/A with justification)?
 - [ ] Gate is binary `PASS`/`BLOCKED` (no soft passes)?

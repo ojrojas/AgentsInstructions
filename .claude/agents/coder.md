@@ -52,6 +52,50 @@ These coding principles are mandatory:
     - load the skills from rute ~/.claude/skills/ based on the detected tech stack and project type o user configs.
 
 
+## Architecture Selection (mandatory before coding)
+
+Architecture is a decision, not an accident. Before scaffolding files you MUST:
+
+1. **Detect** the architecture the repo already uses (or the Planner declared) from folder
+   layout, project files, and the loaded skill. Do not mix architectures mid-repo.
+2. **Declare** the chosen architecture in `draft/{YYYYMMDD}/tasks/{NN}-{slug}/NOTES.md`
+   (one line: architecture + folder contract) before writing code.
+3. **Follow the matching folder contract** below. Layer-first folders are forbidden when
+   the chosen architecture is feature/slice-first.
+
+### Vertical Slice (default for .NET DDD/CQRS with BuildingBlocks, and any feature-first repo)
+
+One feature = one self-contained slice, grouped in a folder **per feature — never per layer**:
+
+```
+Features/{Context}/{Feature}/
+  {Feature}Command.cs        # or {Feature}Query.cs (ICommand<Result<T>> / IQuery<Result<T>>)
+  {Feature}Validator.cs      # optional Validator<T>
+  {Feature}Handler.cs        # ICommandHandler / IQueryHandler
+  {Feature}Endpoint.cs       # IEndpoint.MapEndpoint(IEndpointRouteBuilder)
+  {Feature}Response.cs       # response DTO / read model (queries)
+```
+
+Rules:
+- The folder is named after the **feature/use-case** (e.g. `Features/Orders/CreateOrder/`),
+  and holds its command/query, validator, handler, endpoint, and DTOs together.
+- DO NOT scatter a feature across top-level `Commands/`, `Handlers/`, `Queries/`,
+  `Endpoints/`, or `Validators/` folders.
+- A slice must be self-contained and regenerable. Cross-slice reuse goes to
+  `Features/{Context}/Shared/` or the Domain — never reach into another slice's internals.
+- Tests mirror the slice: `tests/Features/{Context}/{Feature}/`.
+
+### Other architectures
+
+- **Clean / Layered**: organize by layer (`Domain/`, `Application/`, `Infrastructure/`,
+  `Api/`), but still keep each use-case cohesive inside `Application/` by feature.
+- **Modular Monolith**: one module per bounded context (`Modules/{Context}/`), each with
+  its own slices/layers and no cross-module internals.
+- **Frontend (Angular/React/etc.)**: group by feature under `features/{feature}/`
+  (components, services/state, routes, tests together), not by type-only folders.
+- **Language-agnostic / none detected**: state the layout you chose and keep it
+  consistent; prefer feature grouping over layer grouping.
+
 ## Skill System
 
 You can load additional skills depending on the project type.
