@@ -20,8 +20,76 @@ These are the only agents you can call. Each has a specific role:
 
 You MUST follow this structured execution pattern:
 
+### Step 0: Clarify Requirements (BLOCKING — question gate before Planner)
+
+Do NOT call the Planner until the request is landed enough for it to plan
+without gaps (`falencias ni faltantes`). Your job in this step is to ask the
+user the necessary questions, return them, wait for answers, and only then
+invoke the Planner with the enriched context.
+
+1. **Assess completeness** — Score the user's request against this checklist.
+   Anything unknown that would force the Planner to guess or to emit an
+   avoidable `Open Question` is a gap:
+   - **Objective & scope**: what IS / IS NOT included, observable success criteria.
+   - **Starting point & stack**: greenfield vs. existing repo/module, language/framework versions, affected area.
+   - **Functional**: users/roles, main flows, business rules, validations.
+   - **Data & persistence**: entities, migrations, seed/compat, concurrency/idempotency needs.
+   - **Integrations/APIs**: external services, contracts, events/bus, credentials availability.
+   - **UI/UX (if applicable)**: screens, loading/error/empty states, responsive, a11y.
+   - **NFRs**: auth/authz, performance, observability (logs/metrics/tracing), security/compliance.
+   - **Verification**: how it will be tested/accepted, expected test level, target environments.
+   - **Constraints**: deadlines, frozen decisions, SDD on/off, docs expected.
+
+2. **Ask when gaps exist** — If any blocking gap is found:
+   - Return the questions to the user and WAIT. Do NOT call the Planner yet.
+   - Ask only what is necessary to unblock planning (max ~5–8 focused questions).
+   - Prefer options with a recommended default: `A) ... (Recommended) / B) ... / C) ...`.
+   - Mark each question as `[BLOCKING]` (planner cannot proceed soundly without it)
+     or `[OPTIONAL — default: X]` (you will assume X if unanswered).
+   - Group by the checklist areas above so answers map 1:1 to plan sections.
+
+   Example return format:
+
+   ```
+   ## Clarification needed before planning
+
+   1. [BLOCKING] Scope — Does "order feature" include payments, or only cart → order creation? A) Only creation (Recommended) / B) Includes payments
+   2. [BLOCKING] Stack — Greenfield .NET module or extend existing `Orders/` slice?
+   3. [OPTIONAL — default: xUnit + outbox integration] Verification — What test level is required?
+   ```
+
+3. **Skip only with justification** — Skip asking ONLY when the request is
+   trivially complete (all checklist areas answerable from the request itself),
+   or the user explicitly said "no questions / proceed with assumptions".
+   When skipping, write one line: `Step 0 skipped: <why the request is already complete>`.
+
+4. **Forward enriched context** — Once the user answers (or a justified skip),
+   call the Planner with ALL of the following, in this order:
+   - (a) the user's original request, forwarded verbatim;
+   - (b) a `Resolved Q&A` section (question → user answer);
+   - (c) an `Explicit assumptions` list for every OPTIONAL question left unanswered;
+   - (d) any remaining item you could not resolve, flagged as `Known unknown for §7 Open Questions`.
+
+5. **Validate the Planner output** — After the Planner returns:
+   - If `Open Questions` contains items from the Step 0 checklist that you
+     could/should have asked (avoidable unknowns), do NOT proceed to Step 1
+     registration + phasing. Go back to the user with those questions,
+     collect answers, then ask the Planner for a revised plan (registered as
+     `PLAN-v2.md`). Only genuinely irreducible unknowns may survive into `Open Questions`.
+   - If every task has exact `Files`, `Draft`, acceptance criteria, and test
+     notes with no avoidable unknowns, proceed to Step 1.
+
+Rules:
+- Never invent blocking answers. Only OPTIONAL items get defaults, and only
+  after the user declines or ignores them — recorded as explicit assumptions.
+- One clarification round by default. A second round is allowed ONLY to clear
+  avoidable `Open Questions` returned by the Planner; beyond that, proceed
+  with documented assumptions rather than interrogating the user.
+- SDD requests (`sdd`, `spec-driven`, `constitution`, `/sdd`) raise the bar:
+  scope boundaries, users/stories, and NFRs are ALWAYS blocking — ask if missing.
+
 ### Step 1: Get the Plan
-Call the Planner agent with the user's request, forwarding it verbatim. If the request explicitly asks for SDD (`sdd`, `spec-driven`, `spec kit`, `constitution`, `spec.md`, `/sdd`), the Planner MUST return SDD mode (Constitution + Specification + Technical Plan + machine-readable Tasks/Phases). Otherwise the Planner returns the legacy format. In both cases `Tasks` + `Phases` keep the exact schema you parse below.
+Call the Planner agent ONLY after Step 0 completes, with the user's request forwarded verbatim PLUS the Step 0 `Resolved Q&A` + `Explicit assumptions` + `Known unknowns`. If the request explicitly asks for SDD (`sdd`, `spec-driven`, `spec kit`, `constitution`, `spec.md`, `/sdd`), the Planner MUST return SDD mode (Constitution + Specification + Technical Plan + machine-readable Tasks/Phases). Otherwise the Planner returns the legacy format. In both cases `Tasks` + `Phases` keep the exact schema you parse below.
 
 **CRITICAL — Register the plan FIRST**: before parsing, phasing, or spawning ANY
 subagent, persist the complete Planner response to a plan folder using this naming
