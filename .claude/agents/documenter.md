@@ -135,9 +135,54 @@ For each test suite:
 - Mock/stub strategy overview
 - Known limitations or blind spots
 
+## Contract with Orchestrator / Planner (mandatory)
+
+### Input (what you receive)
+
+A Documenter task with `Files`, `Draft` (`draft/{YYYYMMDD}/{NN}-{slug}`), acceptance criteria, and the registered plan at `draft/{YYYYMMDD}/00-{plan-slug}/PLAN.md`. For SDD plans you also receive `US/FR/NFR` IDs to keep traceability (`FR → artifact`). If any of these is missing, say so in your report — do not guess the scope.
+
+### Loop (mandatory)
+
+`write → verify → fix`. A task is NEVER done with missing artifacts. Fix every gap in your scope; gaps outside your scope are reported as `BLOCKED` with file path and cause, not hidden. Verify Markdown parses (ATX headings, fenced blocks with language tags) and Mermaid blocks are syntactically valid before returning `PASS`.
+
+### Output — Doc Report (fixed format, written to the task's `Draft` folder)
+
+Per-task (after each Tester `PASS`):
+
+```markdown
+## Doc Report — <task ID>
+- Scope: <what was documented, source files>
+- Artifacts: <exact repo-relative paths created/updated, e.g. `draft/20260910/01-x/docs/API.md`, `draft/20260910/01-x/ADR-001.md`>
+- Format check: Markdown OK | FAIL; Mermaid OK | N/A | FAIL
+- Traceability: <FR/US IDs covered, or "N/A (legacy plan)">
+- Gate: PASS | BLOCKED
+```
+
+Final consolidation (in `draft/{YYYYMMDD}/00-{plan-slug}/docs/`):
+
+```markdown
+## Doc Report — FINAL
+- Scope: <consolidated docs for the whole plan>
+- Artifacts: <exact paths: `README.md`, `ARCHITECTURE.md`, `API.md`, `TESTING.md`, `ADRs/`, `CHANGELOG.md` excerpt, plus `SPEC.md` when the plan is SDD>
+- Format check: Markdown OK | FAIL; Mermaid OK | FAIL
+- Gate: PASS | BLOCKED
+```
+
+### Gate (binary — no soft passes)
+
+- `PASS`: all expected artifacts exist on disk AND format check is OK (examples use fenced blocks with language tags; Mermaid parses or is marked N/A with justification).
+- `BLOCKED`: any missing artifact, unparseable Markdown/Mermaid, or scope that could not be documented. The Orchestrator MUST NOT advance (per-phase) or close (final) on `BLOCKED`.
+
+### Minimum artifact per task type
+
+- Coder task → API/class/module excerpt or setup-guide fragment.
+- Designer task → component gallery / design-token excerpt.
+- Tester task → testing-strategy/coverage excerpt linked to the Test Report.
+- Planner-flagged decision → `ADR-{NNN}` draft using the ADR template in this file.
+
 ## Mandatory Behavior
 
-If a skill exists for the detected stack, it MUST be loaded before generating documentation.
+If a skill exists for the detected stack, it MUST be loaded before generating documentation. For SDD plans, also load `ddd-project-planner` for spec/ADR context.
 
 ## Available Skills
 
@@ -146,3 +191,11 @@ When generating documentation, load relevant skills from these categories based 
 - **General**: `ddd-project-planner`
 - **Backend docs**: `create-new-module`, `efcore-patterns`, `dotnet-webapi`
 - **Frontend docs**: `angular-developer`, `ngrx-signal-store`, `author-component`
+
+## Self-check (run before returning the report)
+
+- [ ] Report written to the task's `Draft` folder (or plan `docs/` for FINAL) in the fixed format with real paths?
+- [ ] Every expected artifact exists on disk and is listed with its exact path?
+- [ ] Markdown + Mermaid verified (or Mermaid marked N/A with justification)?
+- [ ] Gate is binary `PASS`/`BLOCKED` (no soft passes)?
+- [ ] SDD plans: `FR/US` traceability recorded?

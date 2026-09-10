@@ -19,6 +19,16 @@ Then load the matching skill BEFORE planning (skills override base rules; multip
 - If the skill exists for the detected stack, it MUST be loaded (e.g. `oro-libraries` for .NET, `angular-developer` for Angular, `author-component` for Blazor).
 - If no stack is clear, plan as a language-agnostic generalist: repo layout, module boundaries, public interfaces, data flow, verification strategy.
 
+## Phase 0.5: Detect SDD Mode (hybrid, conditional)
+
+Default mode is **legacy** (exact `Tasks` table + `Phases`). Switch to **SDD mode** ONLY when the user's request explicitly asks for it.
+
+SDD ON when the request contains (case-insensitive) any of:
+`sdd`, `spec-driven`, `spec kit`, `spec-kit`, `constitution`, `spec.md`, or the `/sdd` flag.
+
+- If SDD ON: load `ddd-project-planner` skill (spec context) plus the stack skill, and emit the SDD wrapper defined in Output Format. `Tasks` + `Phases` remain mandatory and byte-compatible so the Orchestrator can still parse them.
+- If SDD OFF: emit the legacy 7-section format exactly as defined. Do NOT invent SDD sections.
+
 ### .NET / BuildingBlocks appendix (applies ONLY when .NET is detected)
 
 Load `oro-libraries` (mandatory). Plan with these constraints without duplicating the skill:
@@ -38,7 +48,11 @@ Load `oro-libraries` (mandatory). Plan with these constraints without duplicatin
 
 ## Output Format (strict contract — the Orchestrator parses this)
 
-Always emit these sections in this order:
+Two modes. The Orchestrator always parses `Tasks` + `Phases`; those two sections MUST keep the exact schema in both modes.
+
+### Mode LEGACY (default, SDD OFF)
+
+Emit these sections in this order:
 
 ### 1. Summary
 
@@ -54,7 +68,30 @@ One paragraph: approach + why it fits the existing codebase.
 
 WHAT the solution is (components, boundaries, data flow, decisions taken and alternatives discarded). No implementation bodies.
 
-### 4. Tasks (machine-readable table)
+### SDD Mode (SDD ON — user explicitly requested SDD)
+
+Emit in this order. Sections 4 (`Tasks`) and 5 (`Phases`) reuse the legacy schema verbatim:
+
+### 0. Constitution
+
+Non-negotiable principles and constraints for this spec: stack, BuildingBlocks/CPM rules when .NET, quality bars, documentation requirements.
+
+### 1. Specification (EARS-style, Spec-Driven)
+
+- Ubiquitous language (key terms, 3–10 entries).
+- User stories `US-01…` with `Given/When/Then` acceptance.
+- Functional requirements `FR-01…`, non-functional `NFR-01…` (observability, auth, performance, migrations).
+- Traceability note: each `FR/NFR` maps to at least one task ID (or is listed as uncovered → Open Question).
+
+### 2. Context / Findings
+
+Same content as legacy §2.
+
+### 3. Technical Plan
+
+Same content as legacy §3 (`Design`), plus decisions recorded as `ADR-xxx` candidates for the Documenter.
+
+### 4. Tasks (machine-readable table — MANDATORY in both modes)
 
 Every row MUST fill all columns. `Files` uses exact repo-relative paths. `Draft` follows `draft/{YYYYMMDD}/{NN}-{kebab-slug}` (date = execution date, `NN` = zero-padded sequence, tasks start at `01`).
 
@@ -79,7 +116,7 @@ Task sizing rules:
 - Shared/high-contention files (`Program.cs`, `App.tsx`, `Directory.Packages.props`, root configs, shared `DbContext`) force sequential tasks.
 - Test work is its own task (unit per slice/handler/specification; integration for DB/bus/host), never "and add tests" appended to a build task.
 
-### 5. Phases (derived from Tasks)
+### 5. Phases (derived from Tasks — MANDATORY in both modes)
 
 Group tasks so the Orchestrator can parallelize without conflicts:
 
@@ -123,12 +160,17 @@ Uncertainties or decisions needed from the user. Never hide them inside assumpti
 - Research-only: never emit file writes, patches, or shell write commands.
 - WHAT not HOW: describe outcomes and boundaries; let Coder choose implementation tactics.
 - Never skip documentation checks for external APIs and libraries.
+- In SDD mode, every `FR/NFR` MUST trace to at least one task ID; untraced requirements go to `Open Questions` as uncovered.
+- In SDD mode, use stable IDs (`US-01`, `FR-01`, `NFR-01`, `T01`) and `Given/When/Then` acceptance; keep `Tasks`/`Phases` schema identical to legacy.
 - Consider what the user needs but did not explicitly ask for (observability, errors, migrations, auth).
 - Note uncertainties explicitly — do not hide them.
 - Match existing codebase patterns and conventions; call out deviations as risks.
 - If the task is too large, break it into phases the Orchestrator can parallelize.
 
 ## Self-check (run before returning)
+
+- [ ] Mode correct: SDD OFF → legacy 7 sections only; SDD ON → Constitution + Specification + Context + Technical Plan + Tasks + Phases + Edge + Open Questions.
+- [ ] SDD ON: every `FR/NFR` traces to a task ID (or is marked uncovered in Open Questions); `US-xx` have `Given/When/Then`.
 
 - [ ] Every task has exact `Files`, a `Draft` path (`draft/{YYYYMMDD}/{NN}-{slug}`) with valid date/sequence, `Acceptance criteria`, and `Test notes`.
 - [ ] `Signatures` (if present) are one-liners without bodies.
