@@ -9,7 +9,7 @@ Rules have been merged into skills using the `paths` frontmatter field for auto-
 ```
 .
 ├── CLAUDE.md                  # Root instructions
-├── .claude/
+├── .agents/
 │   ├── agents/                # Agent definitions
 │   │   ├── coder.md
 │   │   ├── designer.md
