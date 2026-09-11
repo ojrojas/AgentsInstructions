@@ -63,7 +63,7 @@ You MUST follow this structured execution pattern:
 Do NOT call the Planner until the request is landed enough for it to plan
 without gaps (`falencias ni faltantes`). Your job in this step is to ask the
 user the necessary questions, return them, wait for answers, and only then
-invoke the Planner with the enriched context.
+invoke the Planner with the enriched context, use the tool ask | ask_user |question | etc.
 
 1. **Assess completeness** — Score the user's request against this checklist.
    Anything unknown that would force the Planner to guess or to emit an
