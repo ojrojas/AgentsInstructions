@@ -69,24 +69,32 @@ detail), produce:
 - **Domain Events** — meaningful things that happen (e.g. `OrderPlaced`, `InvoiceIssued`)
 - **Domain Services / Policies** — logic that doesn't naturally belong to one entity
 
-Then propose the application and infrastructure shape:
+Then propose the application and infrastructure shape (canon: `examples/Identity/Identity.Server`):
 
 - **Application layer**: commands, queries, handlers — keep this to a representative sample per
-  context, not exhaustive
+  context, not exhaustive. .NET: slices live at `src/Services/{Service}/Application/Features/{Context}/{Feature}.cs`
+  (command/query + validator + handler + `IEndpoint` in ONE file). Never `src/Application/Modules/.../Commands|Queries|DTOs`.
 - **Infrastructure needs**: persistence, messaging, cache, external APIs, storage, email — only
-  what the domain actually requires
+  what the domain actually requires. .NET: EVERYTHING persistence-related lives under
+  `src/Services/{Service}/Infrastructure/` (`Persistence/{Service}DbContext.cs : AppDbContextBase`,
+  `Persistence/Configurations/`, `Persistence/Migrations/`, repository impls `: EfRepository<T,TId>`,
+  `External/` adapters). A sibling `Persistence/` folder next to `Domain/`/`Application/`, or any EF
+  type inside `Domain/`, is FORBIDDEN (this was the reported `modules/catalog/{x}` bug).
 - **Architecture style recommendation**:
   - Non-.NET stacks: pick one (Clean Architecture, Hexagonal/Ports & Adapters, Modular Monolith, Microservices, Vertical Slice) based on project size and team size, and briefly justify — don't default to microservices for a small project.
-  - **.NET override (mandatory, repo contract)**: architecture is ALWAYS **DDD tactical + Vertical Slices**. No Clean/Hexagonal/Microservices proposal for .NET. Tactical mapping: `AggregateRoot<Entity<TId>>` + `StronglyTypedId`, `CheckRule`/`RaiseDomainEvent`, `Result`/`Error` returns, `Specification<T>` queries, `AppDbContextBase` + `AddUnitOfWork` + `AddOutbox` (`StageAsync` then single `SaveChangesAsync`), dispatch via `ISender.SendAsync`, HTTP via `Result → HTTP` extensions. Externals via CPM.
+  - **.NET override (mandatory, repo contract)**: architecture is ALWAYS **single-service-project DDD tactical + Vertical Slices**. No Clean/Hexagonal/Microservices proposal for .NET, no `src/Core + src/Application + src/Infrastructure + src/Server` multi-csproj split, no `Modules/{X}/application,domain,persistence` siblings. Tactical mapping: `AggregateRoot<Entity<TId>>` + `StronglyTypedId`, `CheckRule`/`RaiseDomainEvent`, `Result`/`Error` returns, `Specification<T>` queries (`Where(...)`), `AppDbContextBase` + `AddUnitOfWork` + `AddOutbox` (`StageAsync` then single `SaveChangesAsync`), dispatch via `ISender.SendAsync`, HTTP via `Result → HTTP` extensions. Externals via CPM.
+  - **Frontend track (declare one when UI exists)**: Angular SPA → `apps/web/src/app/{core/,shared/,features/{feature}/,shell/}` (component+service+store+routes+spec together per feature, `ngrx-signal-store`); Blazor → `{Service}.Client/{Pages/,Services/*ApiClient.cs,Models/Contracts.cs}` + server shell `Components/`. Never type-only root folders; never business logic or EF in `.razor`/`.component.ts` — UI calls slice HTTP APIs.
 - **Tech stack**: use what the user specified; if unspecified, propose a stack and say it's a suggestion the user can swap out. When .NET is specified or detected, assume `oro-libraries` BuildingBlocks context.
 
 ## Step 4b — Slice adapter (mandatory for .NET, recommended otherwise)
 
-Translate each MVP bounded context into executable slices BEFORE writing backlog IDs:
+Translate each MVP bounded context into executable slices BEFORE writing backlog IDs.
+Canon: `examples/Identity/Identity.Server/Application/Features/Users/RegisterUser.cs`.
 
-- One feature = one folder `Features/{Context}/{Feature}/` with command/query + validator + handler + `IEndpoint` (+ response DTO). Never plan layer folders (`Commands/`, `Handlers/`, `Repositories/`, `Controllers/`).
-- Name every story so its slice folder is derivable (`{Context}/{Feature}` kebab-case slug).
-- Record one-liner signatures the Coder needs (no bodies, max one line each), e.g. `ISender.SendAsync<T>(IRequest<T>, ct)`, `IEndpoint.MapEndpoint(IEndpointRouteBuilder)`.
+- One feature = one file `src/Services/{Service}/Application/Features/{Context}/{Feature}.cs` with command/query + validator + handler + `IEndpoint` (+ response DTO where needed). Split into a `Features/{Context}/{Feature}/` folder ONLY when the slice outgrows one file. Never plan layer folders (`Commands/`, `Handlers/`, `Queries/`, `Repositories/`, `Controllers/`, `Endpoints/`, `Validators/`) and never `src/Core/Modules + src/Application/Modules + src/Infrastructure + src/Server/EndPoints` (retired `create-new-module` layout) nor `Modules/{X}/application,domain,persistence` siblings.
+- Domain purity: `src/Services/{Service}/Domain/{Aggregate}/` holds ONLY aggregate + `StronglyTypedId` + `ValueObject` + `Enumeration` + `IBusinessRule` + domain events + `Specification<T>` + repository/domain-service INTERFACES. Persistence (`DbContext : AppDbContextBase`, `IEntityTypeConfiguration<>`, migrations, `EfRepository` impls, `OutboxEntityTypeConfiguration`) lives ONLY under `src/Services/{Service}/Infrastructure/` (prefer `Infrastructure/Persistence/`).
+- Name every story so its slice file is derivable (`{Context}/{Feature}` → `{Feature}Command`, `{Feature}Validator`, `{Feature}Handler`, `{Feature}Endpoint` in `{Feature}.cs`).
+- Record one-liner signatures the Coder needs (no bodies, max one line each), e.g. `ISender.SendAsync<T>(IRequest<T>, ct)`, `IEndpoint.MapEndpoint(IEndpointRouteBuilder)`, `IOutboxWriter.StageAsync(IntegrationEvent, ct)`, `IUnitOfWork.SaveChangesAsync(ct)`.
 - Non-.NET: same rule adapted — one feature = one folder (`features/{feature}/` with components/services/routes/tests together).
 
 ## Step 5 — Backlog and user stories
@@ -166,7 +174,7 @@ Then append **Appendix A — Orchestrator contract (mandatory, machine-readable)
 
 | ID | Description (WHAT outcome) | Files (created / modified, exact repo-relative) | Agent | Depends_on | Draft | Acceptance criteria | Test notes | Signatures (optional, one-liners, no bodies) |
 |---|---|---|---|---|---|---|---|---|
-| T01 | ... | creates `Features/{Context}/{Feature}/...` | Coder | — | `draft/{YYYYMMDD}/tasks/01-{slug}` | observable pass/fail | Tester-consumable notes | `ISender.SendAsync<T>(IRequest<T>, ct)` |
+| T01 | ... | creates `src/Services/{Service}/Application/Features/{Context}/{Feature}.cs` (+ `Domain/{Aggregate}/` files where new aggregate) | Coder | — | `draft/{YYYYMMDD}/tasks/01-{slug}` | observable pass/fail | Tester-consumable notes | `ISender.SendAsync<T>(IRequest<T>, ct)` |
 
 ## Phases
 
@@ -193,6 +201,6 @@ Keep every section proportional to size. Trigger note: `enterprise` wording alon
 ## Self-check (run before returning)
 
 - [ ] Every `US-xx` has `Given/When/Then`; every `FR/NFR` traces to ≥1 task ID or is marked uncovered.
-- [ ] .NET plans use `Features/{Context}/{Feature}/` slices only (no layer folders).
+- [ ] .NET plans use single-file slices `src/Services/{Service}/Application/Features/{Context}/{Feature}.cs` only (no layer folders, no `src/Core|Application|Infrastructure|Server` split, no `Modules/{X}/application,domain,persistence` siblings; persistence only under `Infrastructure/`).
 - [ ] Appendix A present with exact `Files`, valid `Draft` paths, acceptance + test notes, one-line signatures only.
 - [ ] No phase overlaps WRITES; dependencies acyclic.

@@ -1,52 +1,60 @@
 ---
 name: create-value-object
-description: Creates a strongly-typed Value Object following DDD patterns — with equality, factory methods, EF conversion
+description: Creates a ValueObject / StronglyTypedId in Domain/{Aggregate}/ — Kernel.Domain only, EF conversion lives in Infrastructure
 ---
 
 ## When to use
-- When adding a new entity identifier
-- When encapsulating a domain value with behavior
+- When adding a new entity identifier (`StronglyTypedId`) or an immutable domain value with behavior
 
-## Template
+## Location (MANDATORY)
+
+- Aggregate IDs and aggregate-owned values: `src/Services/{Service}/Domain/{Aggregate}/{Name}.cs`
+  (e.g. `Domain/Users/UserId.cs`). Shared kernel values only: `Domain/Shared/`.
+- Never `src/Core/Shared/` or `src/Core/Modules/{Module}/ValueObjects/` (retired layout).
+- The EF conversion (`HasConversion(id => id.Value, v => new UserId(v))`) lives in
+  `Infrastructure/Persistence/Configurations/{Entity}Configuration.cs` — NEVER in `Domain/`.
+
+## Templates (Kernel.Domain — exact base types)
 
 ```csharp
-namespace Project.Core.Shared;  // or Core.Modules.{Module}.ValueObjects
+namespace {Service}.Domain.{Aggregate};
 
-public sealed class {Name}(Guid value) : BaseValueObject
+public sealed record {Entity}Id(Guid Value) : StronglyTypedId<Guid>(Value)
 {
-    public Guid Value { get; private set; } = value;
+    public static {Entity}Id New() => new(Guid.CreateVersion7());
+    public static {Entity}Id From(Guid value) => new(value);
+}
+```
 
-    public static {Name} New() => new(Guid.CreateVersion7());
-    public static {Name} From(Guid value) => new(value);
+```csharp
+namespace {Service}.Domain.{Aggregate};
 
-    protected override IEnumerable<object?> GetEquatibilityComponents()
+public sealed class {Name} : ValueObject
+{
+    public {Name}(string value)
+    {
+        // CheckRule(new {Name}MustBeValidRule(value)); // invariants as rules when non-trivial
+        Value = value;
+    }
+
+    public string Value { get; }
+
+    protected override IEnumerable<object?> GetEqualityComponents()
     {
         yield return Value;
     }
 }
 ```
 
-## Variations
-- **For Guid IDs**: Use `BaseValueObject` and `Guid.CreateVersion7()`
-- **For record struct IDs**: Use `readonly record struct` for lightweight structs
-- **For strings**: Use `string Value` property and primary constructor
+## Rules
 
-## CLI Commands
-
-```bash
-# Create ValueObject directory
-mkdir -p src/Core/Modules/{Module}/ValueObjects
-mkdir -p src/Core/Shared
-
-# Verify compilation
-dotnet build Project.slnx
-```
+- Inherit `ValueObject` (equality via `GetEqualityComponents`) — `BaseValueObject` / `GetEquatibilityComponents` are legacy names and MUST NOT be used.
+- IDs inherit `StronglyTypedId<T>` with `New()` (`Guid.CreateVersion7()`) + `From(...)` factories.
+- `Domain/` MUST NOT reference `Microsoft.EntityFrameworkCore`, `IEventBus`, `ISender`, logging or HTTP. Conversions (`.HasConversion`, `.OwnsOne`) go to Infrastructure.
+- Enums-as-concepts inherit `Enumeration<TEnum>`.
 
 ## Steps
 
-1. Identify location: `Core/Shared/` (shared) or `Core/Modules/{Module}/ValueObjects/`
-2. Decide between `class : BaseValueObject` or `readonly record struct`
-3. Implement `GetEquatibilityComponents()`
-4. Add `New()` factory method
-5. Add conversion in EntityConfiguration (`.OwnsOne()` or `.HasConversion()`)
-6. Verify compilation with `dotnet build Project.slnx`
+1. Create the file under `Domain/{Aggregate}/` (or `Domain/Shared/` if truly cross-aggregate).
+2. Add the `HasConversion` / `OwnsOne` mapping in the Infrastructure configuration.
+3. Verify with `dotnet build <repo>.slnx`.

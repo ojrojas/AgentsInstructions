@@ -1,76 +1,58 @@
 ---
 name: implement-cqrs-query
-description: Implements a new CQRS query following DDD patterns — query record, handler, response DTO, endpoint
+description: Implements a read slice (query + handler + endpoint + response DTO) in one file under Application/Features/{Context}/ — Specification reads, NoTracking
 ---
 
 ## When to use
-- When creating a new read operation (Get, List, Search)
-- When exposing data through endpoints
+- When creating a new read operation (Get, List, Search) for an existing aggregate
 
-## Query Template
+## Slice location (MANDATORY)
 
-```csharp
-namespace Project.Application.Modules.{Module}.Queries;
+`src/Services/{Service}/Application/Features/{Module}/Get{Entity}ById.cs` — query, handler,
+endpoint and response live in ONE file named after the feature. Never
+`Application/Modules/{Module}/Queries|DTOs/` + `Server/EndPoints/` splits.
 
-public record Get{Entity}ByIdQuery(Guid Id) : IQuery<Get{Entity}ByIdQueryResponse>
-{
-    public Guid CorrelationId() => Guid.NewGuid();
-}
-```
+Canon: `examples/Identity/Identity.Server/Application/Features/Users/GetCurrentUser.cs`.
 
-## Handler Template
+## Slice template
 
 ```csharp
-namespace Project.Application.Modules.{Module}.Queries;
+namespace {Service}.Application.Features.{Module};
 
-public class Get{Entity}ByIdQueryHandler(
-    ILogger<Get{Entity}ByIdQueryHandler> logger,
-    I{Entity}Repository repository)
-    : IQueryHandler<Get{Entity}ByIdQuery, Get{Entity}ByIdQueryResponse>
+public sealed record Get{Entity}ByIdQuery(Guid Id) : IQuery<Result<Get{Entity}ByIdResponse>>;
+
+public sealed record Get{Entity}ByIdResponse({Entity}Dto Data);
+
+public sealed class Get{Entity}ByIdHandler(
+    I{Entity}Repository repository) : IQueryHandler<Get{Entity}ByIdQuery, Result<Get{Entity}ByIdResponse>>
 {
-    public async Task<Get{Entity}ByIdQueryResponse> HandleAsync(
-        Get{Entity}ByIdQuery query, CancellationToken cancellationToken)
+    public async Task<Result<Get{Entity}ByIdResponse>> HandleAsync(Get{Entity}ByIdQuery query, CancellationToken ct)
     {
-        Get{Entity}ByIdQueryResponse response = new();
-        logger.LogInformation("Handling Get{Entity}ByIdQuery with Id: {Id}", query.Id);
-        response.Data = await repository.Get{Entity}ByIdAsync(new(query.Id), cancellationToken);
-        logger.LogInformation("Successfully handled Get{Entity}ByIdQuery");
-        return response;
+        // var entity = await repository.FirstOrDefaultAsync(new {Entity}ByIdSpec(query.Id), ct);
+        // if (entity is null) return Error.NotFound(...);
+        // return new Get{Entity}ByIdResponse(entity.ToDto());
     }
 }
-```
 
-## Response DTO Template
-
-```csharp
-namespace Project.Application.Modules.{Module}.DTOs;
-
-public record Get{Entity}ByIdQueryResponse
+public sealed class Get{Entity}ByIdEndpoint : IEndpoint
 {
-    public {Entity}Dto? Data { get; set; }
+    public void MapEndpoint(IEndpointRouteBuilder app) =>
+        app.MapGet("/{entities}/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            var result = await sender.SendAsync(new Get{Entity}ByIdQuery(id), ct);
+            return result.ToHttpResult();
+        });
 }
 ```
 
-## CLI Commands
+## Rules
 
-```bash
-# Create module directories
-mkdir -p src/Application/Modules/{Module}/Queries
-mkdir -p src/Application/Modules/{Module}/DTOs
-mkdir -p src/Server/Endpoints
-
-# Verify compilation
-dotnet build Project.slnx
-
-# Run tests
-dotnet test tests/Project.Application.Tests --filter "FullyQualifiedName~{Entity}"
-```
+- Reads go through `Specification<T>` (`Where(...)` + `ApplyAsNoTracking()`), reused via `IsSatisfiedBy` in unit tests. No raw LINQ with `Include` chains in the handler — push it into the specification.
+- Return `Result<T>` (`Error.NotFound` when missing); map with `ToHttpResult()`.
+- No `IOutboxWriter` / `SaveChangesAsync` in queries (reads are side-effect free).
 
 ## Steps
 
-1. Create `record Query : IQuery<TResponse>` in `Application/Modules/{Module}/Queries/`
-2. Create handler `: IQueryHandler<T, TResult>` in the same folder
-3. Create the response DTO
-4. Add endpoint in `Server/EndPoints/{Entity}QueriesEndpoints.cs`
-5. Register endpoint in `Server/Program.cs`
-6. Verify compilation with `dotnet build Project.slnx`
+1. Create `Application/Features/{Module}/Get{Entity}ById.cs` (or `List{Entities}.cs` for collections with paging spec).
+2. Endpoints auto-discovered via `AddEndpoints` + `MapEndpoints`.
+3. Verify with `dotnet build <repo>.slnx`; tests mirror the slice (spec `IsSatisfiedBy`, handler NotFound/Ok paths, GET round-trip).
