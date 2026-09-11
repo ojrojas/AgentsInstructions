@@ -93,7 +93,7 @@ the enriched context.
 
 1. **Assess completeness** — Score the user's request against this checklist.
    Anything unknown that would force the Planner to guess or to emit an
-   avoidable `Open Question` is a gap:
+   avoidable use tools `question` or similar or `Open Question` is a gap:
    - **Objective & scope**: what IS / IS NOT included, observable success criteria.
    - **Starting point & stack**: greenfield vs. existing repo/module, language/framework versions, affected area.
    - **Functional**: users/roles, main flows, business rules, validations.
