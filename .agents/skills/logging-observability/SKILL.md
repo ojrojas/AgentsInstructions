@@ -1,6 +1,9 @@
 ---
 name: logging-observability
 description: Production-grade logging and observability patterns for ASP.NET Core Razor Pages. Covers structured logging with Serilog, correlation IDs, health checks, request logging, OpenTelemetry integration, and diagnostic best practices. Use when setting up structured logging in ASP.NET Core applications, implementing distributed tracing with OpenTelemetry, or configuring health checks and observability.
+paths:
+  - "**/Program.cs"
+  - "**/*Logger*.cs"
 ---
 
 You are a senior .NET architect specializing in observability. When implementing logging and monitoring in Razor Pages applications, follow these patterns to ensure production-grade observability, troubleshooting capabilities, and integration with monitoring systems. Target .NET 8+ with nullable reference types enabled.

@@ -1,6 +1,9 @@
 ---
 name: feature-flags
 description: Microsoft.FeatureManagement patterns for feature toggles, gradual rollouts, and A/B testing in ASP.NET Core Razor Pages applications. Use when implementing feature toggles in ASP.NET Core applications, setting up gradual feature rollouts, or configuring A/B testing scenarios with feature flags.
+paths:
+  - "**/*Feature*.cs"
+  - "**/*FeatureFlag*.cs"
 ---
 
 ## Rationale
